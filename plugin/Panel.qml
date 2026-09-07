@@ -11,8 +11,8 @@ import "Model.js" as Model
 
 Panel {
   id: root
-  moduleName: "io.github.roykevin.omasony"
-  ipcTarget: "io.github.roykevin.omasony"
+  moduleName: "io.github.androydified.omasony"
+  ipcTarget: "io.github.androydified.omasony"
   manageIpc: false
 
   readonly property color foreground: bar ? bar.foreground : Color.foreground

@@ -77,7 +77,7 @@ sudo apt update && sudo apt install -y build-essential cmake ninja-build libblue
 Clone the repository and run the automated setup script:
 
 ```bash
-git clone https://github.com/roykevin/omarchy-sony.git
+git clone https://github.com/andROYdified/omarchy-sony.git
 cd omarchy-sony
 ./setup
 ```
@@ -87,7 +87,7 @@ The `./setup` script will:
 2. Build the daemon and CLI binaries with CMake and Ninja.
 3. Install `sony-headphones-daemon` and `sony-ctl` to `~/.local/bin/`.
 4. Register and start the `sony-headphones.service` user systemd unit.
-5. Symlink the QML plugin to `~/.config/omarchy/plugins/io.github.roykevin.omasony`.
+5. Deploy the QML plugin to `~/.config/omarchy/plugins/io.github.androydified.omasony`.
 
 ---
 

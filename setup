@@ -51,7 +51,7 @@ Steps performed:
   3. Install sony-headphones-daemon and sony-ctl into ~/.local/bin (mode 0755).
   4. Copy daemon/sony-headphones.service to ~/.config/systemd/user/,
      reload systemd daemon, and enable the service unit.
-  5. Deploy plugin/ to ~/.local/share/omarchy/shell/plugins/io.github.roykevin.omasony,
+  5. Deploy plugin/ to ~/.local/share/omarchy/shell/plugins/io.github.androydified.omasony,
      verify no symlinks exist, and validate via omarchy-plugin-validate if present.
 HELP_EOF
 }
@@ -187,7 +187,7 @@ deploy_plugin() {
   info "Deploying Omarchy bar-widget plugin..."
   local plugin_src="$ROOT_DIR/plugin"
   local plugins_dir="$HOME/.local/share/omarchy/shell/plugins"
-  local plugin_dest="$plugins_dir/io.github.roykevin.omasony"
+  local plugin_dest="$plugins_dir/io.github.androydified.omasony"
 
   if [[ ! -d "$plugin_src" ]]; then
     error "Plugin directory not found at $plugin_src"
@@ -225,7 +225,7 @@ deploy_plugin() {
   fi
   # Deploy to ~/.config/omarchy/plugins/ as well for Omarchy shell discovery
   local user_plugins_dir="$HOME/.config/omarchy/plugins"
-  local user_plugin_dest="$user_plugins_dir/io.github.roykevin.omasony"
+  local user_plugin_dest="$user_plugins_dir/io.github.androydified.omasony"
   mkdir -p "$user_plugins_dir"
   rm -rf "$user_plugin_dest"
   mkdir -p "$user_plugin_dest"
@@ -234,8 +234,8 @@ deploy_plugin() {
   success "Plugin deployed to $plugin_dest and $user_plugin_dest."
 
   if command -v omarchy >/dev/null 2>&1; then
-    info "Enabling plugin io.github.roykevin.omasony in Omarchy..."
-    omarchy plugin enable io.github.roykevin.omasony 2>/dev/null || true
+    info "Enabling plugin io.github.androydified.omasony in Omarchy..."
+    omarchy plugin enable io.github.androydified.omasony 2>/dev/null || true
   fi
 }
 
