@@ -154,6 +154,12 @@ deno run --allow-read tests/model.test.js
 
 ---
 
+## Documentation
+
+For low-level protocol packet specifications, framing definitions, and RFCOMM channel mapping details, see the [Sony MDR Protocol Guide](docs/protocol-guide.md).
+
+---
+
 ## Acknowledgments & References
 
 This project builds upon and draws inspiration from two open-source projects:
@@ -162,6 +168,12 @@ This project builds upon and draws inspiration from two open-source projects:
    - Architecture reference for the Omarchy bar widget + headless background daemon + atomic state file design.
 2. **[mos9527/SonyHeadphonesClient](https://github.com/mos9527/SonyHeadphonesClient)**:
    - Reverse-engineered protocol definitions and implementation reference for Sony MDR Bluetooth RFCOMM communication.
+
+---
+
+## Disclaimer
+
+This is an unofficial, independent community project developed for Linux desktop integration. It is not affiliated with, authorized, maintained, sponsored, or endorsed by Sony Corporation or any of its subsidiaries. "Sony", "WH-1000XM5", and related marks are registered trademarks of Sony Corporation.
 
 ---
 
