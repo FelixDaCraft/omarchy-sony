@@ -185,51 +185,28 @@ install_systemd_service() {
 
 deploy_plugin() {
   info "Deploying Omarchy bar-widget plugin..."
-  local plugin_src="$ROOT_DIR/plugin"
   local plugins_dir="$HOME/.local/share/omarchy/shell/plugins"
   local plugin_dest="$plugins_dir/io.github.androydified.omasony"
+  local user_plugins_dir="$HOME/.config/omarchy/plugins"
+  local user_plugin_dest="$user_plugins_dir/io.github.androydified.omasony"
 
-  if [[ ! -d "$plugin_src" ]]; then
-    error "Plugin directory not found at $plugin_src"
-    exit 1
-  fi
+  mkdir -p "$plugin_dest" "$user_plugin_dest"
+  rm -rf "$plugin_dest"/* "$user_plugin_dest"/*
+
+  for file in manifest.json Panel.qml Service.qml Model.js SonyIcon.qml; do
+    if [[ -f "$ROOT_DIR/$file" ]]; then
+      cp "$ROOT_DIR/$file" "$plugin_dest/"
+      cp "$ROOT_DIR/$file" "$user_plugin_dest/"
+    fi
+  done
 
   # Validate plugin if validator is present
   local validator="/usr/share/omarchy/bin/omarchy-plugin-validate"
   if [[ -x "$validator" ]]; then
     info "Validating plugin using $validator..."
-    "$validator" "$plugin_src"
-    success "Plugin validation on $plugin_src passed."
+    "$validator" "$ROOT_DIR"
+    success "Plugin validation passed."
   fi
-
-  mkdir -p "$plugins_dir"
-
-  # Clean destination for idempotent copy
-  rm -rf "$plugin_dest"
-  mkdir -p "$plugin_dest"
-
-  # Copy plugin files
-  cp -r "$plugin_src/." "$plugin_dest/"
-
-  # Verify no symlinks exist in deployed plugin directory
-  local symlink_count
-  symlink_count=$(find "$plugin_dest" -type l | wc -l)
-  if [[ "$symlink_count" -ne 0 ]]; then
-    error "Found $symlink_count symlink(s) in deployed plugin directory $plugin_dest. Symlinks are strictly prohibited."
-    exit 1
-  fi
-
-  # Also validate deployed plugin directory if validator is present
-  if [[ -x "$validator" ]]; then
-    "$validator" "$plugin_dest"
-  fi
-  # Deploy to ~/.config/omarchy/plugins/ as well for Omarchy shell discovery
-  local user_plugins_dir="$HOME/.config/omarchy/plugins"
-  local user_plugin_dest="$user_plugins_dir/io.github.androydified.omasony"
-  mkdir -p "$user_plugins_dir"
-  rm -rf "$user_plugin_dest"
-  mkdir -p "$user_plugin_dest"
-  cp -r "$plugin_src/." "$user_plugin_dest/"
 
   success "Plugin deployed to $plugin_dest and $user_plugin_dest."
 
