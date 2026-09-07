@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.roykevin.omasony",
+  "name": "Sony Headphones",
+  "version": "0.1.0",
+  "author": "Roy Kevin",
+  "license": "MIT",
+  "description": "Sony WH-1000XM5 Headphone Manager",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "Sony Headphones",
+    "description": "Sony WH-1000XM5 Headphone Manager",
+    "category": "Audio",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}

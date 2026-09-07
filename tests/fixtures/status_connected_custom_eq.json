@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "connected": true,
+  "device_name": "WH-1000XM5",
+  "battery_level": 65,
+  "battery_charging": false,
+  "noise_mode": "anc",
+  "ambient_sound_level": 0,
+  "eq_preset": "custom",
+  "eq_custom_bands": [
+    2,
+    1,
+    -1,
+    3,
+    0
+  ],
+  "clear_bass": 4,
+  "speak_to_chat": true,
+  "dsee_extreme": true,
+  "multipoint": true,
+  "codec": "LDAC",
+  "ear_detection": true
+}

@@ -1,0 +1,13 @@
+[Unit]
+Description=Sony WH-1000XM5 Headless Bluetooth Daemon
+PartOf=graphical-session.target
+After=bluetooth.target graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/sony-headphones-daemon
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=graphical-session.target
