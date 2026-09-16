@@ -136,6 +136,15 @@ check_and_install_dependencies() {
 }
 
 build_project() {
+  # A CMake cache records the absolute source path it was generated from, so it
+  # breaks the build if the repository is ever moved or renamed. Drop a cache
+  # that points somewhere else rather than failing with a wall of CMake errors.
+  local cache="$ROOT_DIR/build/CMakeCache.txt"
+  if [[ -f "$cache" ]] && ! grep -qxF "CMAKE_HOME_DIRECTORY:INTERNAL=$ROOT_DIR" "$cache"; then
+    info "Build cache was generated for a different source path; recreating it..."
+    rm -rf "$ROOT_DIR/build"
+  fi
+
   info "Configuring project with CMake and Ninja..."
   cmake -B "$ROOT_DIR/build" -G Ninja
   info "Building daemon and CLI targets..."
