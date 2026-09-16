@@ -104,6 +104,43 @@ The `./setup` script will:
 
 ---
 
+## Uninstalling
+
+`setup` only ever writes inside your home directory. Removing it is the exact
+reverse, and touches nothing else:
+
+```bash
+# 1. Take the widget out of the bar
+omarchy plugin disable io.github.felixdacraft.omasony
+
+# 2. Stop and remove the background daemon
+systemctl --user disable --now sony-headphones.service
+rm -f ~/.config/systemd/user/sony-headphones.service
+systemctl --user daemon-reload
+
+# 3. Remove the binaries
+rm -f ~/.local/bin/sony-headphones-daemon ~/.local/bin/sony-ctl
+
+# 4. Remove the plugin and its runtime state
+rm -rf ~/.config/omarchy/plugins/io.github.felixdacraft.omasony
+rm -rf ~/.local/state/sony-headphones
+```
+
+Step 1 tells the Omarchy shell to stop loading the widget; do it before deleting
+the files so the shell is not left referencing a plugin that no longer exists.
+
+`omarchy plugin remove io.github.felixdacraft.omasony` is a shortcut for step 1
+plus the plugin directory in step 4: it disables the plugin, deletes
+`~/.config/omarchy/plugins/<id>` and rescans. It does not touch the daemon, the
+systemd unit, the binaries or the runtime state, so steps 2 and 3 and the
+`~/.local/state` line still apply.
+
+Nothing is installed system-wide, and no configuration outside the paths above
+is modified. The build dependencies installed from the Prerequisites section are
+ordinary system packages and are left alone.
+
+---
+
 ## CLI Usage (`sony-ctl`)
 
 You can query or control your headphones from anywhere via `sony-ctl`:
