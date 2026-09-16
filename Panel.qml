@@ -124,7 +124,7 @@ Panel {
     fixedWidth: vertical ? -1 : (contentRow.implicitWidth + scaledHorizontalMargin * 2)
     tooltipText: sony.connected
       ? ((sony.deviceName || "WH-1000XM3") + " (" + Model.noiseModeName(sony.noiseMode) + ", " + Model.formatBattery(sony.batteryLevel) + ")")
-      : "Sony Headphones (Disconnected)"
+      : "Sony WH-1000XM3 (Disconnected)"
 
     Row {
       id: contentRow

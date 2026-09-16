@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "io.github.felixdacraft.omasony",
-  "name": "Sony Headphones",
+  "name": "Sony WH-1000XM3",
   "version": "0.2.0",
   "author": "FelixDaCraft",
   "license": "MIT",
@@ -13,7 +13,7 @@
     "barWidget": "Panel.qml"
   },
   "barWidget": {
-    "displayName": "Sony Headphones",
+    "displayName": "Sony WH-1000XM3",
     "description": "Sony WH-1000XM3 Headphone Manager",
     "category": "Audio",
     "allowMultiple": false,
