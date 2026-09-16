@@ -1,3 +1,7 @@
+> **Note:** this page surveys third-party tooling for the WH-1000XM5 and is kept
+> for reference. This plugin targets the **WH-1000XM3**, whose MDR v1 wire
+> protocol is documented in [`xm3-protocol.md`](xm3-protocol.md).
+
 # Managing Sony WH-1000XM5 on PC / Linux / Mac — Open Source Options
 
 ## Background

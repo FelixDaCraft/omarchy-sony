@@ -41,7 +41,7 @@ if (modelSource) {
     modelSource +
     `; return {
       SUPPORTED_SCHEMA, LEVEL_UNKNOWN,
-      NOISE_ANC, NOISE_AMBIENT, NOISE_WIND, NOISE_OFF, NOISE_UNKNOWN,
+      NOISE_ANC, NOISE_AMBIENT, NOISE_OFF, NOISE_UNKNOWN,
       EQ_OFF, EQ_BRIGHT, EQ_EXCITED, EQ_MELLOW, EQ_RELAXED, EQ_VOCAL, EQ_TREBLE, EQ_BASS, EQ_SPEECH, EQ_CUSTOM,
       defaultStatus, parseStatus,
       noiseModeName, noiseModeIcon, eqPresetName, eqPresetButtonLabel,
@@ -56,7 +56,6 @@ if (modelSource) {
 
     var NOISE_ANC = "anc";
     var NOISE_AMBIENT = "ambient";
-    var NOISE_WIND = "wind";
     var NOISE_OFF = "off";
     var NOISE_UNKNOWN = "unknown";
 
@@ -89,10 +88,7 @@ if (modelSource) {
         eqPreset: EQ_OFF,
         eqCustomBands: [0, 0, 0, 0, 0],
         clearBass: 0,
-        speakToChat: false,
         dseeExtreme: false,
-        multipoint: false,
-        earDetection: true,
         codec: ""
       };
     }
@@ -168,7 +164,7 @@ if (modelSource) {
 
       res.batteryCharging = parsed.battery_charging === true || parsed.charging === true;
 
-      var validModes = [NOISE_ANC, NOISE_AMBIENT, NOISE_WIND, NOISE_OFF];
+      var validModes = [NOISE_ANC, NOISE_AMBIENT, NOISE_OFF];
       var nm = String(parsed.noise_mode || "").toLowerCase();
       res.noiseMode = validModes.indexOf(nm) !== -1 ? nm : NOISE_UNKNOWN;
 
@@ -188,10 +184,7 @@ if (modelSource) {
       res.eqCustomBands = bands;
       res.clearBass = clamp(parsed.clear_bass, -10, 10, 0);
 
-      res.speakToChat = parsed.speak_to_chat === true;
       res.dseeExtreme = parsed.dsee_extreme === true || parsed.dsee === true;
-      res.multipoint = parsed.multipoint === true;
-      res.earDetection = parsed.ear_detection !== undefined ? (parsed.ear_detection === true) : true;
       res.codec = String(parsed.codec || "");
 
       return res;
@@ -201,7 +194,6 @@ if (modelSource) {
       switch (mode) {
         case NOISE_ANC: return "Noise Cancelling";
         case NOISE_AMBIENT: return "Ambient Sound";
-        case NOISE_WIND: return "Wind Noise Reduction";
         case NOISE_OFF: return "Off";
         default: return "Unknown";
       }
@@ -211,7 +203,6 @@ if (modelSource) {
       switch (mode) {
         case NOISE_ANC: return "\uDB80\uDF4B";
         case NOISE_AMBIENT: return "\uDB80\uDE26";
-        case NOISE_WIND: return "\uDB81\uDC9A";
         case NOISE_OFF: return "\uDB80\uDF4C";
         default: return "\uDB80\uDF4B";
       }
@@ -277,7 +268,7 @@ if (modelSource) {
 
     return {
       SUPPORTED_SCHEMA, LEVEL_UNKNOWN,
-      NOISE_ANC, NOISE_AMBIENT, NOISE_WIND, NOISE_OFF, NOISE_UNKNOWN,
+      NOISE_ANC, NOISE_AMBIENT, NOISE_OFF, NOISE_UNKNOWN,
       EQ_OFF, EQ_BRIGHT, EQ_EXCITED, EQ_MELLOW, EQ_RELAXED, EQ_VOCAL, EQ_TREBLE, EQ_BASS, EQ_SPEECH, EQ_CUSTOM,
       defaultStatus, parseStatus,
       noiseModeName, noiseModeIcon, eqPresetName, eqPresetButtonLabel,
@@ -354,7 +345,7 @@ console.log("\n[Suite 3: Full Connected Payload]");
   const sample = {
     schema_version: 1,
     connected: true,
-    device_name: "WH-1000XM5",
+    device_name: "WH-1000XM3",
     battery_level: 78,
     battery_charging: false,
     noise_mode: "anc",
@@ -362,16 +353,13 @@ console.log("\n[Suite 3: Full Connected Payload]");
     eq_preset: "bright",
     eq_custom_bands: [1, 2, 0, -1, 3],
     clear_bass: 2,
-    speak_to_chat: true,
     dsee_extreme: true,
-    multipoint: true,
     codec: "LDAC",
-    ear_detection: true
   };
   const r = Model.parseStatus(JSON.stringify(sample));
   check("Full payload ok: true", r.ok, true);
   check("Connected flag", r.connected, true);
-  check("Device name", r.deviceName, "WH-1000XM5");
+  check("Device name", r.deviceName, "WH-1000XM3");
   check("Battery level", r.batteryLevel, 78);
   check("Battery charging", r.batteryCharging, false);
   check("Noise mode", r.noiseMode, "anc");
@@ -379,11 +367,8 @@ console.log("\n[Suite 3: Full Connected Payload]");
   check("EQ preset", r.eqPreset, "bright");
   check("EQ custom bands", r.eqCustomBands, [1, 2, 0, -1, 3]);
   check("Clear bass", r.clearBass, 2);
-  check("Speak-to-chat", r.speakToChat, true);
   check("DSEE extreme", r.dseeExtreme, true);
-  check("Multipoint", r.multipoint, true);
   check("Codec", r.codec, "LDAC");
-  check("Ear detection", r.earDetection, true);
 }
 
 // Suite 4: Disconnected Payload
@@ -433,7 +418,7 @@ console.log("\n[Suite 6: Display Formatters & Helpers]");
 {
   check("noiseModeName(anc)", Model.noiseModeName("anc"), "Noise Cancelling");
   check("noiseModeName(ambient)", Model.noiseModeName("ambient"), "Ambient Sound");
-  check("noiseModeName(wind)", Model.noiseModeName("wind"), "Wind Noise Reduction");
+  check("noiseModeName(wind) is unknown on the XM3", Model.noiseModeName("wind"), "Unknown");
   check("noiseModeName(off)", Model.noiseModeName("off"), "Off");
   check("noiseModeName(invalid)", Model.noiseModeName("xyz"), "Unknown");
 

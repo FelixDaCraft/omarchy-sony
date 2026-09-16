@@ -469,18 +469,18 @@ std::string IpcServer::handleBuiltinCommand(const std::string& line) {
         return "{\"schema_version\":1,\"connected\":false}\n";
     }
 
-    // 2. noise <anc|ambient|wind|off>
+    // 2. noise <anc|ambient|off>
     if (verb == "noise") {
         if (tokens.size() < 2) {
-            return "ERR missing mode (expected anc|ambient|wind|off)\n";
+            return "ERR missing mode (expected anc|ambient|off)\n";
         }
         std::string modeStr = toLower(tokens[1]);
-        if (modeStr != "anc" && modeStr != "ambient" && modeStr != "wind" && modeStr != "off") {
+        if (modeStr != "anc" && modeStr != "ambient" && modeStr != "off") {
             return "ERR invalid mode '" + modeStr + "'\n";
         }
 
         protocol::NoiseMode mode = protocol::stringToNoiseMode(modeStr);
-        uint8_t ambientLevel = (modeStr == "wind") ? 0 : 0;
+        uint8_t ambientLevel = 0;
 
         if (callbacks_.setNoiseMode) {
             std::string err;
@@ -577,26 +577,7 @@ std::string IpcServer::handleBuiltinCommand(const std::string& line) {
         }
     }
 
-    // 5. speak-to-chat <on|off>
-    if (verb == "speak-to-chat") {
-        if (tokens.size() < 2) {
-            return "ERR expected on|off\n";
-        }
-        std::string val = toLower(tokens[1]);
-        if (val != "on" && val != "off") {
-            return "ERR expected on|off\n";
-        }
-        bool enabled = (val == "on");
-        if (callbacks_.setSpeakToChat) {
-            std::string err;
-            if (!callbacks_.setSpeakToChat(enabled, err)) {
-                return "ERR " + (err.empty() ? "failed to set speak-to-chat" : err) + "\n";
-            }
-        }
-        return "OK\n";
-    }
-
-    // 6. dsee <on|off>
+    // 5. dsee <on|off>
     if (verb == "dsee") {
         if (tokens.size() < 2) {
             return "ERR expected on|off\n";
@@ -610,44 +591,6 @@ std::string IpcServer::handleBuiltinCommand(const std::string& line) {
             std::string err;
             if (!callbacks_.setDsee(enabled, err)) {
                 return "ERR " + (err.empty() ? "failed to set dsee" : err) + "\n";
-            }
-        }
-        return "OK\n";
-    }
-
-    // 7. multipoint <on|off>
-    if (verb == "multipoint") {
-        if (tokens.size() < 2) {
-            return "ERR expected on|off\n";
-        }
-        std::string val = toLower(tokens[1]);
-        if (val != "on" && val != "off") {
-            return "ERR expected on|off\n";
-        }
-        bool enabled = (val == "on");
-        if (callbacks_.setMultipoint) {
-            std::string err;
-            if (!callbacks_.setMultipoint(enabled, err)) {
-                return "ERR " + (err.empty() ? "failed to set multipoint" : err) + "\n";
-            }
-        }
-        return "OK\n";
-    }
-
-    // 8. ear-detect <on|off> or ear-detection <on|off>
-    if (verb == "ear-detect" || verb == "ear-detection") {
-        if (tokens.size() < 2) {
-            return "ERR expected on|off\n";
-        }
-        std::string val = toLower(tokens[1]);
-        if (val != "on" && val != "off") {
-            return "ERR expected on|off\n";
-        }
-        bool enabled = (val == "on");
-        if (callbacks_.setEarDetection) {
-            std::string err;
-            if (!callbacks_.setEarDetection(enabled, err)) {
-                return "ERR " + (err.empty() ? "failed to set ear detection" : err) + "\n";
             }
         }
         return "OK\n";

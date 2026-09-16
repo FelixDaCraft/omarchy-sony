@@ -34,11 +34,8 @@ std::string HeadphoneState::toJson() const {
        << eq_custom_bands[0] << "," << eq_custom_bands[1] << "," << eq_custom_bands[2] << ","
        << eq_custom_bands[3] << "," << eq_custom_bands[4] << "],"
        << "\"clear_bass\":" << clear_bass << ","
-       << "\"speak_to_chat\":" << (speak_to_chat ? "true" : "false") << ","
        << "\"dsee\":" << (dsee_extreme ? "true" : "false") << ","
        << "\"dsee_extreme\":" << (dsee_extreme ? "true" : "false") << ","
-       << "\"multipoint\":" << (multipoint ? "true" : "false") << ","
-       << "\"ear_detection\":" << (ear_detection ? "true" : "false") << ","
        << "\"codec\":\"" << codec << "\","
        << "\"last_updated\":" << last_updated
        << "}";
@@ -196,7 +193,7 @@ void StreamFramer::reset() {
 }
 
 // ---------------------------------------------------------------------------
-// Command Serializers (Host -> XM5)
+// Command Serializers (Host -> XM3)
 // ---------------------------------------------------------------------------
 
 std::vector<uint8_t> serializeACK(uint8_t rx_seq) {
@@ -204,34 +201,41 @@ std::vector<uint8_t> serializeACK(uint8_t rx_seq) {
 }
 
 std::vector<uint8_t> serializeNoiseMode(NoiseMode mode, uint8_t ambientLevel, bool voiceFocus, uint8_t seq) {
-    uint8_t totalEffect = (mode == NoiseMode::OFF) ? 0x00 : 0x01;
-    uint8_t ncMode = (mode == NoiseMode::AMBIENT || mode == NoiseMode::WIND) ? 0x01 : 0x00;
-    uint8_t voice = (mode == NoiseMode::AMBIENT && voiceFocus) ? 0x01 : 0x00;
-    uint8_t level = (mode == NoiseMode::AMBIENT) ? static_cast<uint8_t>(std::clamp(static_cast<int>(ambientLevel), 0, 20)) : 0x00;
+    // NCASM_SET_PARAM / MODE_NC_ASM (MDR v1, inquired type 0x02):
+    //   68 02 <effect> <ncAsmSettingType> <ncDualSingle> <asmSettingType> <asmId> <asmLevel>
+    const bool on = (mode != NoiseMode::OFF);
+    const uint8_t effect = on ? kNcAsmEffectCompletion : kNcAsmEffectOff;
+    const uint8_t dualSingle = (mode == NoiseMode::ANC) ? kNcDualSingleDual : kNcDualSingleOff;
+    const uint8_t asmId = (mode == NoiseMode::AMBIENT && voiceFocus) ? kAsmIdVoice : kAsmIdNormal;
+    const uint8_t level = (mode == NoiseMode::AMBIENT)
+        ? static_cast<uint8_t>(std::clamp(static_cast<int>(ambientLevel), 0, 20))
+        : 0x00;
 
     std::vector<uint8_t> payload = {
-        0x68, // NCASM_SET_PARAM
-        0x17, // MODE_NC_ASM_DUAL_NC_MODE_SWITCH_AND_ASM_SEAMLESS
-        0x01, // CHANGED
-        totalEffect,
-        ncMode,
-        voice,
+        0x68,
+        0x02,
+        effect,
+        kNcAsmSettingDualSingleOff,
+        dualSingle,
+        kAsmSettingLevelAdjustment,
+        asmId,
         level
     };
     return packFrame(PacketType::DATA_MDR, seq, payload);
 }
 
 std::vector<uint8_t> serializeAmbientLevel(uint8_t level, bool voiceFocus, uint8_t seq) {
-    NoiseMode mode = (level == 0) ? NoiseMode::WIND : NoiseMode::AMBIENT;
-    return serializeNoiseMode(mode, level, voiceFocus, seq);
+    // The XM3 has no wind-noise-reduction mode: level 0 is simply the quietest
+    // ambient setting, so every level stays in AMBIENT.
+    return serializeNoiseMode(NoiseMode::AMBIENT, level, voiceFocus, seq);
 }
 
 std::vector<uint8_t> serializeEqPreset(EqPreset preset, uint8_t seq) {
     std::vector<uint8_t> payload = {
-        0x58, // EQEBB_SET_PARAM
-        0x00, // PRESET_EQ
+        0x58,                           // EQEBB_SET_PARAM
+        kEqebbInquiredType,             // PRESET_EQ (0x01 on the XM3)
         static_cast<uint8_t>(preset),
-        0x00  // 0 band steps follow (preset selection only)
+        0x00                            // 0 band steps follow (preset selection only)
     };
     return packFrame(PacketType::DATA_MDR, seq, payload);
 }
@@ -242,10 +246,10 @@ std::vector<uint8_t> serializeCustomEq(const std::array<int, 5>& bands, int clea
     };
 
     std::vector<uint8_t> payload = {
-        0x58, // EQEBB_SET_PARAM
-        0x00, // PRESET_EQ
+        0x58,
+        kEqebbInquiredType,
         static_cast<uint8_t>(EqPreset::CUSTOM), // 0xA0
-        0x06, // 6 steps follow
+        0x06,                                   // 6 steps follow
         clampVal(clearBass),
         clampVal(bands[0]),
         clampVal(bands[1]),
@@ -256,40 +260,14 @@ std::vector<uint8_t> serializeCustomEq(const std::array<int, 5>& bands, int clea
     return packFrame(PacketType::DATA_MDR, seq, payload);
 }
 
-std::vector<uint8_t> serializeSpeakToChat(bool enabled, uint8_t seq) {
-    std::vector<uint8_t> payload = {
-        0xF8, // SYSTEM_SET_PARAM
-        0x0C, // SMART_TALKING_MODE_TYPE2
-        static_cast<uint8_t>(enabled ? 0x00 : 0x01), // ON = 0, OFF = 1
-        0x01  // previewModeOnOffValue = OFF
-    };
-    return packFrame(PacketType::DATA_MDR, seq, payload);
-}
-
 std::vector<uint8_t> serializeDsee(bool enabled, uint8_t seq) {
+    // AUDIO_SET_PARAM / UPSCALING (DSEE HX):
+    //   e8 01 <settingType=ON_OFF> <value>
     std::vector<uint8_t> payload = {
-        0xE8, // AUDIO_SET_PARAM
-        0x01, // UPSCALING
-        static_cast<uint8_t>(enabled ? 0x01 : 0x00) // AUTO/ON = 1, OFF = 0
-    };
-    return packFrame(PacketType::DATA_MDR, seq, payload);
-}
-
-std::vector<uint8_t> serializeMultipoint(bool enabled, uint8_t seq) {
-    std::vector<uint8_t> payload = {
-        0xD8, // GENERAL_SETTING_SET_PARAM
-        0xD1, // GENERAL_SETTING1
-        0x00, // BOOLEAN_TYPE
-        static_cast<uint8_t>(enabled ? 0x00 : 0x01) // ON = 0, OFF = 1
-    };
-    return packFrame(PacketType::DATA_MDR, seq, payload);
-}
-
-std::vector<uint8_t> serializeEarDetection(bool enabled, uint8_t seq) {
-    std::vector<uint8_t> payload = {
-        0xF8, // SYSTEM_SET_PARAM
-        0x01, // PLAYBACK_CONTROL_BY_WEARING
-        static_cast<uint8_t>(enabled ? 0x00 : 0x01) // ON = 0, OFF = 1
+        0xE8,
+        0x01,
+        0x00,
+        static_cast<uint8_t>(enabled ? 0x01 : 0x00)
     };
     return packFrame(PacketType::DATA_MDR, seq, payload);
 }
@@ -298,18 +276,28 @@ std::vector<uint8_t> serializeEarDetection(bool enabled, uint8_t seq) {
 // Query Serializers
 // ---------------------------------------------------------------------------
 
+std::vector<uint8_t> serializeHandshake(uint8_t seq) {
+    std::vector<uint8_t> payload = { 0x00, 0x00 }; // CONNECT_GET_PROTOCOL_INFO
+    return packFrame(PacketType::DATA_MDR, seq, payload);
+}
+
+std::vector<uint8_t> serializeQueryDeviceName(uint8_t seq) {
+    std::vector<uint8_t> payload = { 0x04, 0x01 }; // CONNECT_GET_DEVICE_INFO, MODEL_NAME
+    return packFrame(PacketType::DATA_MDR, seq, payload);
+}
+
 std::vector<uint8_t> serializeQueryBattery(uint8_t seq) {
-    std::vector<uint8_t> payload = { 0x22, 0x00 }; // POWER_GET_STATUS, BATTERY
+    std::vector<uint8_t> payload = { 0x10, 0x00 }; // POWER_GET_STATUS, BATTERY
     return packFrame(PacketType::DATA_MDR, seq, payload);
 }
 
 std::vector<uint8_t> serializeQueryNoiseMode(uint8_t seq) {
-    std::vector<uint8_t> payload = { 0x66, 0x17 }; // NCASM_GET_PARAM, MODE_NC_ASM_...
+    std::vector<uint8_t> payload = { 0x66, 0x02 }; // NCASM_GET_PARAM, MODE_NC_ASM
     return packFrame(PacketType::DATA_MDR, seq, payload);
 }
 
 std::vector<uint8_t> serializeQueryEq(uint8_t seq) {
-    std::vector<uint8_t> payload = { 0x56 }; // EQEBB_GET_PARAM
+    std::vector<uint8_t> payload = { 0x56, kEqebbInquiredType }; // EQEBB_GET_PARAM
     return packFrame(PacketType::DATA_MDR, seq, payload);
 }
 
@@ -318,23 +306,8 @@ std::vector<uint8_t> serializeQueryDsee(uint8_t seq) {
     return packFrame(PacketType::DATA_MDR, seq, payload);
 }
 
-std::vector<uint8_t> serializeQuerySpeakToChat(uint8_t seq) {
-    std::vector<uint8_t> payload = { 0xF6, 0x0C }; // SYSTEM_GET_PARAM, SMART_TALKING_MODE_TYPE2
-    return packFrame(PacketType::DATA_MDR, seq, payload);
-}
-
-std::vector<uint8_t> serializeQueryEarDetection(uint8_t seq) {
-    std::vector<uint8_t> payload = { 0xF6, 0x01 }; // SYSTEM_GET_PARAM, PLAYBACK_CONTROL_BY_WEARING
-    return packFrame(PacketType::DATA_MDR, seq, payload);
-}
-
-std::vector<uint8_t> serializeQueryGeneralSetting(uint8_t seq) {
-    std::vector<uint8_t> payload = { 0xD6, 0xD1 }; // GENERAL_SETTING_GET_PARAM, GENERAL_SETTING1
-    return packFrame(PacketType::DATA_MDR, seq, payload);
-}
-
 // ---------------------------------------------------------------------------
-// Inbound State Deserializer (XM5 -> Host)
+// Inbound State Deserializer (XM3 -> Host)
 // ---------------------------------------------------------------------------
 
 bool parseInboundPayload(std::span<const uint8_t> payload, HeadphoneState& state) {
@@ -342,89 +315,59 @@ bool parseInboundPayload(std::span<const uint8_t> payload, HeadphoneState& state
     uint8_t cmd = payload[0];
     bool updated = false;
 
-    // 1. Battery Status (POWER_RET_STATUS / POWER_NTFY_STATUS)
-    if ((cmd == 0x23 || cmd == 0x25) && payload.size() >= 3) {
-        uint8_t type = payload[1];
-        if (type == 0x00 && payload.size() >= 4) { // BATTERY
-            state.battery_level = payload[2];
-            state.battery_charging = (payload[3] == 0x01);
-            updated = true;
-        } else if (type == 0x08 && payload.size() >= 5) { // BATTERY_WITH_THRESHOLD
-            state.battery_level = payload[2];
-            state.battery_charging = (payload[4] == 0x01);
+    // 1. Model name (CONNECT_RET_DEVICE_INFO): 05 01 <len> <ascii...>
+    if (cmd == 0x05 && payload.size() >= 3 && payload[1] == 0x01) {
+        size_t len = payload[2];
+        if (len > 0 && payload.size() >= 3 + len) {
+            state.device_name.assign(reinterpret_cast<const char*>(payload.data() + 3), len);
             updated = true;
         }
     }
-    // 2. Noise Control & Ambient Sound (NCASM_RET_PARAM / NCASM_NTFY_PARAM)
-    else if ((cmd == 0x67 || cmd == 0x69) && payload.size() >= 7) {
-        uint8_t type = payload[1];
-        if (type == 0x17) {
-            uint8_t totalEffect = payload[3];
-            uint8_t ncMode = payload[4];
-            uint8_t voiceFocus = payload[5];
-            uint8_t level = payload[6];
+    // 2. Battery (POWER_RET_STATUS / POWER_NTFY_STATUS): 11|13 00 <level> <charging>
+    else if ((cmd == 0x11 || cmd == 0x13) && payload.size() >= 4 && payload[1] == 0x00) {
+        state.battery_level = payload[2];
+        state.battery_charging = (payload[3] == 0x01);
+        updated = true;
+    }
+    // 3. Noise control (NCASM_RET_PARAM / NCASM_NTFY_PARAM):
+    //    67|69 02 <effect> <ncAsmSettingType> <ncDualSingle> <asmSettingType> <asmId> <asmLevel>
+    else if ((cmd == 0x67 || cmd == 0x69) && payload.size() >= 8 && payload[1] == 0x02) {
+        uint8_t effect     = payload[2];
+        uint8_t dualSingle = payload[4];
+        uint8_t asmId      = payload[6];
+        uint8_t level      = payload[7];
 
-            if (totalEffect == 0x00) {
-                state.noise_mode = "off";
-            } else if (ncMode == 0x00) {
-                state.noise_mode = "anc";
-                if (level > 0) {
-                    state.ambient_sound_level = level;
-                }
-            } else if (ncMode == 0x01) {
-                if (level == 0) {
-                    state.noise_mode = "wind";
-                } else {
-                    state.noise_mode = "ambient";
-                    state.ambient_sound_level = level;
-                }
+        if (effect == kNcAsmEffectOff) {
+            state.noise_mode = "off";
+        } else if (dualSingle == kNcDualSingleOff) {
+            state.noise_mode = "ambient";
+        } else {
+            state.noise_mode = "anc";
+        }
+        // The headset keeps reporting the last ambient level in every mode, so
+        // it is worth remembering even while ANC or Off is active.
+        state.ambient_sound_level = std::clamp(static_cast<int>(level), 0, 20);
+        state.voice_passthrough = (asmId == kAsmIdVoice);
+        updated = true;
+    }
+    // 4. Equalizer (EQEBB_RET_PARAM / EQEBB_NTFY_PARAM):
+    //    57|59 01 <preset> 06 <clearBass> <band0..band4>
+    else if ((cmd == 0x57 || cmd == 0x59) && payload.size() >= 3 && payload[1] == kEqebbInquiredType) {
+        state.eq_preset = eqPresetToString(static_cast<EqPreset>(payload[2]));
+        if (payload.size() >= 10 && payload[3] == 0x06) {
+            state.clear_bass = static_cast<int>(payload[4]) - 10;
+            for (size_t i = 0; i < 5; ++i) {
+                state.eq_custom_bands[i] = static_cast<int>(payload[5 + i]) - 10;
             }
-            state.voice_passthrough = (voiceFocus == 0x01);
-            updated = true;
         }
+        updated = true;
     }
-    // 3. Equalizer (EQEBB_RET_PARAM / EQEBB_NTFY_PARAM)
-    else if ((cmd == 0x57 || cmd == 0x59) && payload.size() >= 3) {
-        uint8_t type = payload[1];
-        if (type == 0x00) { // PRESET_EQ
-            state.eq_preset = eqPresetToString(static_cast<EqPreset>(payload[2]));
-            if (payload.size() >= 10 && payload[3] == 0x06) {
-                state.clear_bass = static_cast<int>(payload[4]) - 10;
-                for (size_t i = 0; i < 5; ++i) {
-                    state.eq_custom_bands[i] = static_cast<int>(payload[5 + i]) - 10;
-                }
-            }
-            updated = true;
-        }
+    // 5. DSEE HX (AUDIO_RET_PARAM / AUDIO_NTFY_PARAM): e7|e9 01 <settingType> <value>
+    else if ((cmd == 0xE7 || cmd == 0xE9) && payload.size() >= 4 && payload[1] == 0x01) {
+        state.dsee_extreme = (payload[3] == 0x01);
+        updated = true;
     }
-    // 4. DSEE (AUDIO_RET_PARAM / AUDIO_NTFY_PARAM)
-    else if ((cmd == 0xE7 || cmd == 0xE9) && payload.size() >= 3) {
-        uint8_t type = payload[1];
-        if (type == 0x01) { // UPSCALING
-            state.dsee_extreme = (payload[2] == 0x01);
-            updated = true;
-        }
-    }
-    // 5. System (Speak-to-Chat / Ear Detection) (SYSTEM_RET_PARAM / SYSTEM_NTFY_PARAM)
-    else if ((cmd == 0xF7 || cmd == 0xF9) && payload.size() >= 3) {
-        uint8_t type = payload[1];
-        if (type == 0x0C) { // SMART_TALKING_MODE_TYPE2 (Speak-to-Chat)
-            state.speak_to_chat = (payload[2] == 0x00);
-            updated = true;
-        } else if (type == 0x01) { // PLAYBACK_CONTROL_BY_WEARING (Ear Detection)
-            state.ear_detection = (payload[2] == 0x00);
-            updated = true;
-        }
-    }
-    // 6. General Setting (Multipoint) (GENERAL_SETTING_RET_PARAM / GENERAL_SETTING_NTNY_PARAM)
-    else if ((cmd == 0xD7 || cmd == 0xD9) && payload.size() >= 4) {
-        uint8_t type = payload[1];
-        if (type == 0xD1) { // GENERAL_SETTING1
-            state.multipoint = (payload[3] == 0x00);
-            updated = true;
-        }
-    }
-    // Alternative single-byte dispatch (e.g. from compact representations)
+    // Alternative single-byte dispatch (compact representations used by mocks)
     else if (cmd == 0x10 && payload.size() >= 3) { // Battery: [0x10, level, charging]
         state.battery_level = payload[1];
         state.battery_charging = (payload[2] != 0);
@@ -443,11 +386,8 @@ bool parseInboundPayload(std::span<const uint8_t> payload, HeadphoneState& state
         }
         state.clear_bass = static_cast<int>(payload[6]) - 10;
         updated = true;
-    } else if (cmd == 0x14 && payload.size() >= 5) { // Toggles: [0x14, s2c, dsee, multi, ear]
-        state.speak_to_chat = (payload[1] != 0);
-        state.dsee_extreme = (payload[2] != 0);
-        state.multipoint = (payload[3] != 0);
-        state.ear_detection = (payload[4] != 0);
+    } else if (cmd == 0x14 && payload.size() >= 2) { // Toggles: [0x14, dsee]
+        state.dsee_extreme = (payload[1] != 0);
         updated = true;
     }
 
@@ -498,7 +438,6 @@ std::string noiseModeToString(NoiseMode mode) {
         case NoiseMode::OFF:     return "off";
         case NoiseMode::ANC:     return "anc";
         case NoiseMode::AMBIENT: return "ambient";
-        case NoiseMode::WIND:    return "wind";
         default:                 return "off";
     }
 }
@@ -506,7 +445,6 @@ std::string noiseModeToString(NoiseMode mode) {
 NoiseMode stringToNoiseMode(const std::string& str) {
     if (str == "anc")     return NoiseMode::ANC;
     if (str == "ambient") return NoiseMode::AMBIENT;
-    if (str == "wind")    return NoiseMode::WIND;
     if (str == "off")     return NoiseMode::OFF;
     return NoiseMode::ANC;
 }

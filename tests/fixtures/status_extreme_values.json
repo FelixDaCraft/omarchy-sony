@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "connected": true,
-  "device_name": "WH-1000XM5",
+  "device_name": "WH-1000XM3",
   "battery_level": 150,
   "battery_charging": false,
   "noise_mode": "invalid_mode",
@@ -15,9 +15,6 @@
     -8
   ],
   "clear_bass": 15,
-  "speak_to_chat": true,
   "dsee_extreme": false,
-  "multipoint": false,
-  "codec": "LDAC",
-  "ear_detection": true
+  "codec": "LDAC"
 }

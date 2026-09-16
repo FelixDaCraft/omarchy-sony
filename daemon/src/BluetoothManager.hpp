@@ -15,10 +15,16 @@ namespace omarchy::sony::protocol {
 // ---------------------------------------------------------------------------
 // Constants & UUIDs
 // ---------------------------------------------------------------------------
-constexpr const char* MDR_UUID_XM5       = "956C7B26-D49A-4BA8-B03F-B17D393CB6E2";
-constexpr const char* MDR_UUID_XM5_LOWER = "956c7b26-d49a-4ba8-b03f-b17d393cb6e2";
-constexpr const char* MDR_UUID_LEGACY    = "96CC203E-5068-46AD-B32D-E316F5E069BA";
-constexpr uint8_t DEFAULT_RFCOMM_CHANNEL = 9;
+// The WH-1000XM3 speaks MDR protocol v1 and advertises only the legacy Sony
+// service UUID. The v2 UUID is kept so an XM4 (which advertises both) still
+// matches, but it is never the primary.
+constexpr const char* MDR_UUID_V1        = "96CC203E-5068-46AD-B32D-E316F5E069BA";
+constexpr const char* MDR_UUID_V1_LOWER  = "96cc203e-5068-46ad-b32d-e316f5e069ba";
+constexpr const char* MDR_UUID_V2        = "956C7B26-D49A-4BA8-B03F-B17D393CB6E2";
+constexpr const char* MDR_UUID_V2_LOWER  = "956c7b26-d49a-4ba8-b03f-b17d393cb6e2";
+// Fallback only: SDP is queried first. Channel 15 is what a WH-1000XM3
+// (firmware 4.5.2) publishes for the MDR service.
+constexpr uint8_t DEFAULT_RFCOMM_CHANNEL = 15;
 
 enum class ConnectionState {
     DISCONNECTED,
@@ -34,7 +40,7 @@ std::string connectionStateToString(ConnectionState state);
 struct BluetoothDeviceInfo {
     std::string path;               // D-Bus object path (e.g. /org/bluez/hci0/dev_XX_XX_XX_XX_XX_XX)
     std::string macAddress;         // Colon-separated MAC address (e.g. 11:22:33:44:55:66)
-    std::string name;               // Advertised device name (e.g. "WH-1000XM5")
+    std::string name;               // Advertised device name (e.g. "WH-1000XM3")
     std::string alias;              // User-assigned alias
     bool paired{false};             // Whether device is paired in BlueZ
     bool connected{false};          // Whether underlying ACL link is connected

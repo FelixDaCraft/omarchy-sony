@@ -1,5 +1,5 @@
 // plugin/Model.js
-// Pure ECMAScript model library for Sony WH-1000XM5 headphone management.
+// Pure ECMAScript model library for Sony WH-1000XM3 headphone management.
 // Zero QML dependencies; runnable in QML, Deno, and Node.js runtimes.
 
 var SUPPORTED_SCHEMA = 1;
@@ -7,7 +7,6 @@ var LEVEL_UNKNOWN = -1;
 
 var NOISE_ANC = "anc";
 var NOISE_AMBIENT = "ambient";
-var NOISE_WIND = "wind";
 var NOISE_OFF = "off";
 var NOISE_UNKNOWN = "unknown";
 
@@ -46,10 +45,7 @@ function defaultStatus() {
     eqPreset: EQ_OFF,
     eqCustomBands: [0, 0, 0, 0, 0],
     clearBass: 0,
-    speakToChat: false,
     dseeExtreme: false,
-    multipoint: false,
-    earDetection: true,
     codec: ""
   };
 }
@@ -125,7 +121,7 @@ function parseStatus(raw) {
 
   res.batteryCharging = parsed.battery_charging === true || parsed.charging === true;
 
-  var validModes = [NOISE_ANC, NOISE_AMBIENT, NOISE_WIND, NOISE_OFF];
+  var validModes = [NOISE_ANC, NOISE_AMBIENT, NOISE_OFF];
   var nm = String(parsed.noise_mode || "").toLowerCase();
   res.noiseMode = validModes.indexOf(nm) !== -1 ? nm : NOISE_UNKNOWN;
 
@@ -145,10 +141,7 @@ function parseStatus(raw) {
   res.eqCustomBands = bands;
   res.clearBass = clamp(parsed.clear_bass, -10, 10, 0);
 
-  res.speakToChat = parsed.speak_to_chat === true;
   res.dseeExtreme = parsed.dsee_extreme === true || parsed.dsee === true;
-  res.multipoint = parsed.multipoint === true;
-  res.earDetection = parsed.ear_detection !== undefined ? (parsed.ear_detection === true) : true;
   res.codec = String(parsed.codec || "");
 
   return res;
@@ -158,7 +151,6 @@ function noiseModeName(mode) {
   switch (mode) {
     case NOISE_ANC: return "Noise Cancelling";
     case NOISE_AMBIENT: return "Ambient Sound";
-    case NOISE_WIND: return "Wind Noise Reduction";
     case NOISE_OFF: return "Off";
     default: return "Unknown";
   }
@@ -168,7 +160,6 @@ function noiseModeIcon(mode) {
   switch (mode) {
     case NOISE_ANC: return "\uDB80\uDF4B";
     case NOISE_AMBIENT: return "\uDB80\uDE26";
-    case NOISE_WIND: return "\uDB81\uDC9A";
     case NOISE_OFF: return "\uDB80\uDF4C";
     default: return "\uDB80\uDF4B";
   }

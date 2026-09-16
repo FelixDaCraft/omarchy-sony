@@ -1,6 +1,18 @@
 # omarchy-sony
 
-A modern, lightweight Omarchy bar-widget plugin and headless C++20 background daemon to manage **Sony WH-1000XM5** (and compatible Sony MDR v2) headphones on Linux.
+> **Fork for the WH-1000XM3.** This is a fork of
+> [andROYdified/omarchy-sony](https://github.com/andROYdified/omarchy-sony),
+> which targets the WH-1000XM5 and Sony's MDR **v2** protocol. The XM3 speaks
+> MDR **v1**: different service UUID, different RFCOMM channel, different
+> opcodes, and a mandatory handshake. A v2 client connects fine to an XM3 and
+> then does nothing at all, because the headset ACKs unknown commands and
+> silently ignores them.
+>
+> Every byte here was captured from a real WH-1000XM3 on firmware 4.5.2 and is
+> documented in [`docs/xm3-protocol.md`](docs/xm3-protocol.md). Upstream is MIT
+> licensed and the original copyright is preserved in [LICENSE](LICENSE).
+
+A modern, lightweight Omarchy bar-widget plugin and headless C++20 background daemon to manage **Sony WH-1000XM3** (and compatible Sony MDR v1) headphones on Linux.
 
 Provides real-time battery monitoring, Noise Cancellation (ANC / Ambient / Off) mode switching, granular ambient sound level controls, Equalizer presets, and smart feature toggles directly from the Omarchy desktop shell or command line.
 
@@ -12,7 +24,8 @@ Provides real-time battery monitoring, Noise Cancellation (ANC / Ambient / Off) 
 - 🎧 **Noise Control Modes:** Seamless hardware switching between **ANC (Noise Canceling)**, **Ambient Sound**, and **Off** (passive).
 - 🔊 **Ambient Sound Level Slider:** Granular adjustment of ambient passthrough (levels 0–20) with Focus on Voice support.
 - 🎛️ **Equalizer Profiles:** Switch presets (*Off, Bright, Excited, Mellow, Relaxed, Vocal, Treble Boost, Bass Boost, Speech, Custom*) and configure 5-band custom EQ + Clear Bass.
-- ⚙️ **Smart Features:** Speak-to-Chat, DSEE Extreme upscaling, Multipoint Bluetooth connection, and Wear/Ear Detection toggles.
+- ⚙️ **Smart Features:** DSEE HX upscaling toggle.
+- 🚫 **Not on the XM3:** Speak-to-Chat, Multipoint and wearing detection are XM4/XM5 features. The headset does not answer those commands, so the plugin no longer exposes them.
 - ⌨️ **Keyboard Navigation:** Full vim-style navigation (`h`/`j`/`k`/`l`, `Enter`, `Esc`) inside the panel dropdown.
 - 💻 **Standalone CLI (`sony-ctl`):** Full terminal and scripting interface for all headphone controls.
 - ⚡ **Zero Polling & Lightweight:** Native BlueZ RFCOMM transport with reactive file-view event updates.
@@ -45,10 +58,10 @@ Provides real-time battery monitoring, Noise Cancellation (ANC / Ambient / Off) 
 │   (/run/user/$UID/sony-headphones.sock)                │
 │                 │                                      │
 │                 ▼                                      │
-│   Bluetooth RFCOMM Stack (MDR v2 Protocol)             │
-│                 │ (Channel 9)                          │
+│   Bluetooth RFCOMM Stack (MDR v1 Protocol)             │
+│                 │ (channel resolved over SDP)          │
 │                 ▼                                      │
-│       Sony WH-1000XM5 Headset                          │
+│       Sony WH-1000XM3 Headset                          │
 └────────────────────────────────────────────────────────┘
 ```
 
@@ -77,7 +90,7 @@ sudo apt update && sudo apt install -y build-essential cmake ninja-build libblue
 Clone the repository and run the automated setup script:
 
 ```bash
-git clone https://github.com/andROYdified/omarchy-sony.git
+git clone https://github.com/<your-github-user>/omarchy-sony.git
 cd omarchy-sony
 ./setup
 ```
@@ -114,10 +127,7 @@ sony-ctl eq bass
 sony-ctl eq custom 0 2 4 2 0 5  # 5 bands (-10..10) + Clear Bass (-10..10)
 
 # Toggle Smart Features
-sony-ctl speak-to-chat on
 sony-ctl dsee on
-sony-ctl multipoint on
-sony-ctl ear-detection on
 ```
 
 ---
@@ -156,24 +166,31 @@ deno run --allow-read tests/model.test.js
 
 ## Documentation
 
-For low-level protocol packet specifications, framing definitions, and RFCOMM channel mapping details, see the [Sony MDR Protocol Guide](docs/protocol-guide.md).
+The **WH-1000XM3 MDR v1 wire protocol** — service UUID, RFCOMM channel, handshake,
+every verified opcode and the commands the XM3 does *not* answer — is documented in
+[`docs/xm3-protocol.md`](docs/xm3-protocol.md).
+
+[`docs/protocol-guide.md`](docs/protocol-guide.md) is upstream's survey of third-party
+tooling for the WH-1000XM5, kept for reference.
 
 ---
 
 ## Acknowledgments & References
 
-This project builds upon and draws inspiration from two open-source projects:
+This project builds upon and draws inspiration from these open-source projects:
 
 1. **[thisisgm/omarchy-pods](https://github.com/thisisgm/omarchy-pods)**:
    - Architecture reference for the Omarchy bar widget + headless background daemon + atomic state file design.
 2. **[mos9527/SonyHeadphonesClient](https://github.com/mos9527/SonyHeadphonesClient)**:
    - Reverse-engineered protocol definitions and implementation reference for Sony MDR Bluetooth RFCOMM communication.
+3. **[andROYdified/omarchy-sony](https://github.com/andROYdified/omarchy-sony)** by Roy Kevin De Jesus:
+   - The upstream project this fork is based on (Omarchy plugin, daemon, CLI and test suite), MIT licensed.
 
 ---
 
 ## Disclaimer
 
-This is an unofficial, independent community project developed for Linux desktop integration. It is not affiliated with, authorized, maintained, sponsored, or endorsed by Sony Corporation or any of its subsidiaries. "Sony", "WH-1000XM5", and related marks are registered trademarks of Sony Corporation.
+This is an unofficial, independent community project developed for Linux desktop integration. It is not affiliated with, authorized, maintained, sponsored, or endorsed by Sony Corporation or any of its subsidiaries. "Sony", "WH-1000XM3", and related marks are registered trademarks of Sony Corporation.
 
 ---
 

@@ -1,5 +1,5 @@
 // plugin/Panel.qml
-// Omarchy Bar-Widget & Interactive Dropdown Control Panel for Sony WH-1000XM5.
+// Omarchy Bar-Widget & Interactive Dropdown Control Panel for Sony WH-1000XM3.
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -52,7 +52,7 @@ Panel {
 
   function moveCursor(dx, dy) {
     cursorActive = true
-    var sections = ["noise", "ambient", "eq", "speakToChat", "dsee", "multipoint"]
+    var sections = ["noise", "ambient", "eq", "dsee"]
 
     if (dy !== 0) {
       if (focusSection === "noise") {
@@ -65,22 +65,16 @@ Panel {
       } else if (focusSection === "eq") {
         if (dy > 0) {
           if (eqIndex < 5) eqIndex = Math.min(9, eqIndex + 5)
-          else focusSection = "speakToChat"
+          else focusSection = "dsee"
         } else if (dy < 0) {
           if (eqIndex >= 5) eqIndex = eqIndex - 5
           else focusSection = (sony.noiseMode === Model.NOISE_AMBIENT) ? "ambient" : "noise"
         }
-      } else if (focusSection === "speakToChat") {
-        if (dy > 0) focusSection = "dsee"
-        else if (dy < 0) {
+      } else if (focusSection === "dsee") {
+        if (dy < 0) {
           focusSection = "eq"
           eqIndex = 5
         }
-      } else if (focusSection === "dsee") {
-        if (dy > 0) focusSection = "multipoint"
-        else if (dy < 0) focusSection = "speakToChat"
-      } else if (focusSection === "multipoint") {
-        if (dy < 0) focusSection = "dsee"
       }
       return
     }
@@ -104,12 +98,8 @@ Panel {
       // Level is adjusted via left/right
     } else if (focusSection === "eq") {
       sony.setEqPreset(Model.EQ_PRESETS[eqIndex])
-    } else if (focusSection === "speakToChat") {
-      sony.setSpeakToChat(!sony.speakToChat)
     } else if (focusSection === "dsee") {
       sony.setDsee(!sony.dseeExtreme)
-    } else if (focusSection === "multipoint") {
-      sony.setMultipoint(!sony.multipoint)
     }
   }
 
@@ -133,7 +123,7 @@ Panel {
     hasVisualContent: true
     fixedWidth: vertical ? -1 : (contentRow.implicitWidth + scaledHorizontalMargin * 2)
     tooltipText: sony.connected
-      ? ((sony.deviceName || "WH-1000XM5") + " (" + Model.noiseModeName(sony.noiseMode) + ", " + Model.formatBattery(sony.batteryLevel) + ")")
+      ? ((sony.deviceName || "WH-1000XM3") + " (" + Model.noiseModeName(sony.noiseMode) + ", " + Model.formatBattery(sony.batteryLevel) + ")")
       : "Sony Headphones (Disconnected)"
 
     Row {
@@ -213,10 +203,12 @@ Panel {
           // 1. Device Header
           // -------------------------------------------------------------------
           Row {
+            id: headerRow
             width: parent.width
             spacing: Style.space(12)
 
             SonyIcon {
+              id: headerIcon
               anchors.verticalCenter: parent.verticalCenter
               iconSize: Style.space(28)
               connected: sony.connected
@@ -226,12 +218,16 @@ Panel {
 
             Column {
               anchors.verticalCenter: parent.verticalCenter
-              width: parent.width - Style.space(110)
+              // Claim whatever the icon and the battery block leave behind.
+              // A Row disables itself entirely if a child anchors horizontally,
+              // so the battery block is pushed right by sizing this instead.
+              width: Math.max(0, headerRow.width - headerIcon.width - headerRow.spacing
+                                 - (headerBattery.visible ? headerBattery.width + headerRow.spacing : 0))
               spacing: Style.space(2)
 
               Text {
                 textFormat: Text.PlainText
-                text: sony.connected ? (sony.deviceName || "WH-1000XM5") : "WH-1000XM5"
+                text: sony.connected ? (sony.deviceName || "WH-1000XM3") : "WH-1000XM3"
                 color: root.foreground
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.title
@@ -267,8 +263,8 @@ Panel {
 
             // Battery status block
             Column {
+              id: headerBattery
               anchors.verticalCenter: parent.verticalCenter
-              anchors.right: parent.right
               spacing: Style.space(2)
               visible: sony.connected
 
@@ -482,25 +478,10 @@ Panel {
             }
 
             Toggle {
-              id: toggleSpeakToChat
-              width: parent.width
-              label: "Speak-to-Chat"
-              description: "Pauses music automatically when speaking"
-              checked: sony.speakToChat
-              hasCursor: root.cursorActive && root.focusSection === "speakToChat"
-              foreground: root.foreground
-              fontFamily: root.fontFamily
-              onClicked: {
-                root.focusSection = "speakToChat"
-                sony.setSpeakToChat(!sony.speakToChat)
-              }
-            }
-
-            Toggle {
               id: toggleDsee
               width: parent.width
-              label: "DSEE Extreme"
-              description: "AI audio upscaling for compressed tracks"
+              label: "DSEE HX"
+              description: "Upscales compressed tracks toward hi-res quality"
               checked: sony.dseeExtreme
               hasCursor: root.cursorActive && root.focusSection === "dsee"
               foreground: root.foreground
@@ -508,21 +489,6 @@ Panel {
               onClicked: {
                 root.focusSection = "dsee"
                 sony.setDsee(!sony.dseeExtreme)
-              }
-            }
-
-            Toggle {
-              id: toggleMultipoint
-              width: parent.width
-              label: "Multipoint Connection"
-              description: "Connect to two devices simultaneously"
-              checked: sony.multipoint
-              hasCursor: root.cursorActive && root.focusSection === "multipoint"
-              foreground: root.foreground
-              fontFamily: root.fontFamily
-              onClicked: {
-                root.focusSection = "multipoint"
-                sony.setMultipoint(!sony.multipoint)
               }
             }
           }

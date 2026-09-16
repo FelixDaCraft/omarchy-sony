@@ -38,7 +38,7 @@ struct DaemonOptions {
 
 void printHelp(const char* progName) {
     std::cout << "Usage: " << progName << " [OPTIONS]\n\n"
-              << "Headless background daemon managing Sony WH-1000XM5 headphones on Linux.\n\n"
+              << "Headless background daemon managing Sony WH-1000XM3 headphones on Linux.\n\n"
               << "Options:\n"
               << "  -h, --help               Display this help message and exit\n"
               << "  -v, --version            Display version information and exit\n"
@@ -178,14 +178,11 @@ int main(int argc, char* argv[]) {
 
     // In mock mode, ensure initial standard state
     if (opts.mockMode) {
-        stateEngine.setConnected(true, "WH-1000XM5");
+        stateEngine.setConnected(true, "WH-1000XM3");
         stateEngine.setBattery(85, false);
         stateEngine.updateNoiseMode("anc", 0, false);
         stateEngine.updateEqPreset("off");
-        stateEngine.updateSpeakToChat(false);
         stateEngine.updateDsee(true);
-        stateEngine.updateMultipoint(true);
-        stateEngine.updateEarDetection(true);
         stateEngine.save();
     }
 
@@ -224,7 +221,7 @@ int main(int argc, char* argv[]) {
     callbacks.onConnected = [&]() {
         txSeq = 0;
         const auto& dev = btManager->getCurrentDevice();
-        std::string name = dev.name.empty() ? "WH-1000XM5" : dev.name;
+        std::string name = dev.name.empty() ? "WH-1000XM3" : dev.name;
         stateEngine.setConnected(true, name);
         if (dev.batteryLevel >= 0) {
             stateEngine.setBattery(dev.batteryLevel, false);
@@ -235,13 +232,16 @@ int main(int argc, char* argv[]) {
         fflush(stderr);
 
         if (!opts.mockMode) {
+            // CONNECT_GET_PROTOCOL_INFO must open the session: the XM3 silently
+            // drops every other command until it has been handshaken.
+            btManager->sendPacket(serializeHandshake(nextSeq()));
+            btManager->sendPacket(serializeQueryDeviceName(nextSeq()));
+
             // Initial status query flurry with sequence toggling
             btManager->sendPacket(serializeQueryBattery(nextSeq()));
             btManager->sendPacket(serializeQueryNoiseMode(nextSeq()));
             btManager->sendPacket(serializeQueryEq(nextSeq()));
             btManager->sendPacket(serializeQueryDsee(nextSeq()));
-            btManager->sendPacket(serializeQuerySpeakToChat(nextSeq()));
-            btManager->sendPacket(serializeQueryEarDetection(nextSeq()));
         }
     };
 
@@ -352,17 +352,6 @@ int main(int argc, char* argv[]) {
         }
         return true;
     };
-    ipcCb.setSpeakToChat = [&](bool enabled, std::string& /*err*/) {
-        stateEngine.updateSpeakToChat(enabled);
-        stateEngine.save();
-        if (btManager && btManager->getState() == ConnectionState::CONNECTED) {
-            uint8_t seq = nextSeq();
-            fprintf(stderr, "[DAEMON] Sending Speak-to-Chat: %s (seq %u)\n", enabled ? "on" : "off", (unsigned)seq);
-            fflush(stderr);
-            btManager->sendPacket(serializeSpeakToChat(enabled, seq));
-        }
-        return true;
-    };
     ipcCb.setDsee = [&](bool enabled, std::string& /*err*/) {
         stateEngine.updateDsee(enabled);
         stateEngine.save();
@@ -371,28 +360,6 @@ int main(int argc, char* argv[]) {
             fprintf(stderr, "[DAEMON] Sending DSEE: %s (seq %u)\n", enabled ? "on" : "off", (unsigned)seq);
             fflush(stderr);
             btManager->sendPacket(serializeDsee(enabled, seq));
-        }
-        return true;
-    };
-    ipcCb.setMultipoint = [&](bool enabled, std::string& /*err*/) {
-        stateEngine.updateMultipoint(enabled);
-        stateEngine.save();
-        if (btManager && btManager->getState() == ConnectionState::CONNECTED) {
-            uint8_t seq = nextSeq();
-            fprintf(stderr, "[DAEMON] Sending Multipoint: %s (seq %u)\n", enabled ? "on" : "off", (unsigned)seq);
-            fflush(stderr);
-            btManager->sendPacket(serializeMultipoint(enabled, seq));
-        }
-        return true;
-    };
-    ipcCb.setEarDetection = [&](bool enabled, std::string& /*err*/) {
-        stateEngine.updateEarDetection(enabled);
-        stateEngine.save();
-        if (btManager && btManager->getState() == ConnectionState::CONNECTED) {
-            uint8_t seq = nextSeq();
-            fprintf(stderr, "[DAEMON] Sending Ear Detection: %s (seq %u)\n", enabled ? "on" : "off", (unsigned)seq);
-            fflush(stderr);
-            btManager->sendPacket(serializeEarDetection(enabled, seq));
         }
         return true;
     };

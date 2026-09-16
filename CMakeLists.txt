@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.20)
 
 project(omarchy-sony
     VERSION 0.1.0
-    DESCRIPTION "Sony WH-1000XM5 Headless Bluetooth Daemon, CLI, and Omarchy Widget"
+    DESCRIPTION "Sony WH-1000XM3 Headless Bluetooth Daemon, CLI, and Omarchy Widget"
     LANGUAGES CXX C
 )
 

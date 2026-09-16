@@ -31,10 +31,7 @@ struct IpcCallbacks {
     std::function<bool(uint8_t level, std::string& errorMsg)> setAmbientLevel;
     std::function<bool(protocol::EqPreset preset, std::string& errorMsg)> setEqPreset;
     std::function<bool(const std::array<int, 5>& bands, int clearBass, std::string& errorMsg)> setCustomEq;
-    std::function<bool(bool enabled, std::string& errorMsg)> setSpeakToChat;
     std::function<bool(bool enabled, std::string& errorMsg)> setDsee;
-    std::function<bool(bool enabled, std::string& errorMsg)> setMultipoint;
-    std::function<bool(bool enabled, std::string& errorMsg)> setEarDetection;
     std::function<bool(const std::vector<uint8_t>& packet)> sendPacket;
 
     // Offline simulation test helper hooks

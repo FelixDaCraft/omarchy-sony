@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "connected": true,
-  "device_name": "WH-1000XM5",
+  "device_name": "WH-1000XM3",
   "battery_level": 92,
   "battery_charging": true,
   "noise_mode": "anc",
@@ -15,9 +15,6 @@
     0
   ],
   "clear_bass": 1,
-  "speak_to_chat": false,
   "dsee_extreme": true,
-  "multipoint": false,
-  "codec": "AAC",
-  "ear_detection": true
+  "codec": "AAC"
 }

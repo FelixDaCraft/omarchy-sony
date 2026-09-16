@@ -251,16 +251,17 @@ public:
             return std::nullopt;
         }
 
-        // 2. Filter paired devices matching XM5 UUID or Name
+        // 2. Filter paired devices matching the Sony MDR UUID or a known name
         std::vector<BluetoothDeviceInfo> candidates;
         for (const auto& dev : devices) {
             if (!dev.paired) continue;
 
             bool matchesUuid = false;
             for (const auto& u : dev.uuids) {
-                if (strcasecmp(u.c_str(), MDR_UUID_XM5) == 0 ||
-                    strcasecmp(u.c_str(), MDR_UUID_XM5_LOWER) == 0 ||
-                    strcasecmp(u.c_str(), MDR_UUID_LEGACY) == 0) {
+                if (strcasecmp(u.c_str(), MDR_UUID_V1) == 0 ||
+                    strcasecmp(u.c_str(), MDR_UUID_V1_LOWER) == 0 ||
+                    strcasecmp(u.c_str(), MDR_UUID_V2) == 0 ||
+                    strcasecmp(u.c_str(), MDR_UUID_V2_LOWER) == 0) {
                     matchesUuid = true;
                     break;
                 }
@@ -271,8 +272,8 @@ public:
             std::transform(nameLower.begin(), nameLower.end(), nameLower.begin(), [](unsigned char c){
                 return static_cast<char>(std::tolower(c));
             });
-            if (nameLower.find("wh-1000xm5") != std::string::npos ||
-                nameLower.find("wf-1000xm5") != std::string::npos ||
+            if (nameLower.find("wh-1000xm3") != std::string::npos ||
+                nameLower.find("wh-1000xm2") != std::string::npos ||
                 nameLower.find("wh-1000xm4") != std::string::npos) {
                 matchesName = true;
             }
@@ -524,11 +525,11 @@ std::optional<BluetoothDeviceInfo> MockDeviceDiscovery::findSonyHeadphones(const
     if (devices.empty()) {
         BluetoothDeviceInfo dev;
         dev.macAddress = "AA:BB:CC:DD:EE:FF";
-        dev.name = "WH-1000XM5";
-        dev.alias = "WH-1000XM5";
+        dev.name = "WH-1000XM3";
+        dev.alias = "WH-1000XM3";
         dev.paired = true;
         dev.connected = true;
-        dev.uuids.push_back(MDR_UUID_XM5_LOWER);
+        dev.uuids.push_back(MDR_UUID_V1_LOWER);
         return dev;
     }
 
@@ -649,8 +650,28 @@ void BluetoothManager::attemptDiscovery() {
 
 void BluetoothManager::attemptSdp() {
     setState(ConnectionState::RESOLVING_SDP);
-    // Channel 9 is verified MDR RFCOMM service for WH-1000XM5 (UUID 956c7b26-d49a-4ba8-b03f-b17d393cb6e2)
-    currentChannel_ = 9;
+
+    // The MDR RFCOMM channel is model- and firmware-specific (a WH-1000XM3 on
+    // firmware 4.5.2 publishes 15, an XM5 publishes 9), so resolve it over SDP
+    // rather than hardcoding it. v1 UUID first: that is the one an XM3 carries.
+    currentChannel_ = config_.defaultChannel;
+    if (sdpResolver_) {
+        int ch = sdpResolver_->resolveRfcommChannel(
+            currentDevice_.macAddress, MDR_UUID_V1_LOWER, config_.sdpTimeoutMs);
+        if (ch <= 0 && !config_.mockMode) {
+            ch = sdpResolver_->resolveRfcommChannel(
+                currentDevice_.macAddress, MDR_UUID_V2_LOWER, config_.sdpTimeoutMs);
+        }
+        if (ch > 0) {
+            currentChannel_ = static_cast<uint8_t>(ch);
+            fprintf(stderr, "[BT] SDP resolved MDR RFCOMM channel %d\n", ch);
+        } else {
+            fprintf(stderr, "[BT] SDP lookup failed, falling back to channel %u\n",
+                    (unsigned)currentChannel_);
+        }
+        fflush(stderr);
+    }
+
     attemptConnect();
 }
 

@@ -79,10 +79,10 @@ bool StateEngine::ensureStateDirectory(const std::filesystem::path& dirPath) {
 StateEngine::StateEngine(const std::filesystem::path& customStatePath)
     : stateFilePath_(resolveStateFilePath(customStatePath)),
       stateDir_(stateFilePath_.parent_path()) {
-    // Default initial standard WH-1000XM5 state
+    // Default initial standard WH-1000XM3 state
     state_.schema_version = 1;
     state_.connected = true;
-    state_.device_name = "WH-1000XM5";
+    state_.device_name = "WH-1000XM3";
     state_.battery_level = 85;
     state_.battery_charging = false;
     state_.noise_mode = "anc";
@@ -91,11 +91,8 @@ StateEngine::StateEngine(const std::filesystem::path& customStatePath)
     state_.eq_preset = "off";
     state_.eq_custom_bands = {0, 0, 0, 0, 0};
     state_.clear_bass = 0;
-    state_.speak_to_chat = false;
     state_.dsee_extreme = true;
-    state_.multipoint = true;
     state_.codec = "LDAC";
-    state_.ear_detection = true;
     state_.last_updated = std::chrono::duration_cast<std::chrono::seconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
 }
@@ -253,11 +250,8 @@ std::string StateEngine::serializeStateLocked() const {
        << state_.eq_custom_bands[2] << ", " << state_.eq_custom_bands[3] << ", "
        << state_.eq_custom_bands[4] << "],\n"
        << "  \"clear_bass\": " << state_.clear_bass << ",\n"
-       << "  \"speak_to_chat\": " << (state_.speak_to_chat ? "true" : "false") << ",\n"
        << "  \"dsee\": " << (state_.dsee_extreme ? "true" : "false") << ",\n"
        << "  \"dsee_extreme\": " << (state_.dsee_extreme ? "true" : "false") << ",\n"
-       << "  \"multipoint\": " << (state_.multipoint ? "true" : "false") << ",\n"
-       << "  \"ear_detection\": " << (state_.ear_detection ? "true" : "false") << ",\n"
        << "  \"codec\": \"" << state_.codec << "\",\n"
        << "  \"last_updated\": " << state_.last_updated << "\n"
        << "}\n";
@@ -381,16 +375,13 @@ void StateEngine::setBattery(int level, bool charging) {
 }
 
 bool StateEngine::setNoiseMode(const std::string& mode) {
-    if (mode != "anc" && mode != "ambient" && mode != "wind" && mode != "off") {
+    if (mode != "anc" && mode != "ambient" && mode != "off") {
         return false;
     }
     std::string payloadJson;
     {
         std::lock_guard<std::mutex> lock(mutex_);
         state_.noise_mode = mode;
-        if (mode == "wind") {
-            state_.ambient_sound_level = 0;
-        }
         state_.last_updated = std::chrono::duration_cast<std::chrono::seconds>(
             std::chrono::system_clock::now().time_since_epoch()).count();
         payloadJson = serializeStateLocked();
@@ -401,14 +392,14 @@ bool StateEngine::setNoiseMode(const std::string& mode) {
 }
 
 bool StateEngine::updateNoiseMode(const std::string& mode, int ambientLevel, bool voiceFocus) {
-    if (mode != "anc" && mode != "ambient" && mode != "wind" && mode != "off") {
+    if (mode != "anc" && mode != "ambient" && mode != "off") {
         return false;
     }
     std::string payloadJson;
     {
         std::lock_guard<std::mutex> lock(mutex_);
         state_.noise_mode = mode;
-        state_.ambient_sound_level = (mode == "wind") ? 0 : ambientLevel;
+        state_.ambient_sound_level = ambientLevel;
         state_.voice_passthrough = voiceFocus;
         state_.last_updated = std::chrono::duration_cast<std::chrono::seconds>(
             std::chrono::system_clock::now().time_since_epoch()).count();
@@ -494,50 +485,11 @@ bool StateEngine::setCustomEq(const std::array<int, 5>& bands, int clearBass) {
     return true;
 }
 
-void StateEngine::setSpeakToChat(bool enabled) {
-    std::string payloadJson;
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        state_.speak_to_chat = enabled;
-        state_.last_updated = std::chrono::duration_cast<std::chrono::seconds>(
-            std::chrono::system_clock::now().time_since_epoch()).count();
-        payloadJson = serializeStateLocked();
-        notifyListenersLocked();
-    }
-    writeAtomic(payloadJson);
-}
-
 void StateEngine::setDsee(bool enabled) {
     std::string payloadJson;
     {
         std::lock_guard<std::mutex> lock(mutex_);
         state_.dsee_extreme = enabled;
-        state_.last_updated = std::chrono::duration_cast<std::chrono::seconds>(
-            std::chrono::system_clock::now().time_since_epoch()).count();
-        payloadJson = serializeStateLocked();
-        notifyListenersLocked();
-    }
-    writeAtomic(payloadJson);
-}
-
-void StateEngine::setMultipoint(bool enabled) {
-    std::string payloadJson;
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        state_.multipoint = enabled;
-        state_.last_updated = std::chrono::duration_cast<std::chrono::seconds>(
-            std::chrono::system_clock::now().time_since_epoch()).count();
-        payloadJson = serializeStateLocked();
-        notifyListenersLocked();
-    }
-    writeAtomic(payloadJson);
-}
-
-void StateEngine::setEarDetection(bool enabled) {
-    std::string payloadJson;
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        state_.ear_detection = enabled;
         state_.last_updated = std::chrono::duration_cast<std::chrono::seconds>(
             std::chrono::system_clock::now().time_since_epoch()).count();
         payloadJson = serializeStateLocked();

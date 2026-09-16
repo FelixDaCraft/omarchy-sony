@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.20)
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     project(sony-ctl
         VERSION 0.1.0
-        DESCRIPTION "Sony WH-1000XM5 Headless Daemon Control CLI"
+        DESCRIPTION "Sony WH-1000XM3 Headless Daemon Control CLI"
         LANGUAGES CXX
     )
 

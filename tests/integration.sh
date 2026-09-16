@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # tests/integration.sh — End-to-End Simulation & Verification Test Suite
-# Project: omarchy-sony (Sony WH-1000XM5 Plugin & Headless Daemon)
+# Project: omarchy-sony (Sony WH-1000XM3 Plugin & Headless Daemon)
 # ==============================================================================
 # This script executes a complete, self-contained offline simulation validating
 # daemon state management, UNIX domain socket IPC, CLI command execution,
@@ -166,7 +166,7 @@ else
 fi
 
 # T1.D2: Atomic initial status.json generation
-if [[ -f "$STATUS_FILE" ]] && jq -e '.schema_version == 1 and .connected == true and .device_name == "WH-1000XM5"' "$STATUS_FILE" >/dev/null 2>&1; then
+if [[ -f "$STATUS_FILE" ]] && jq -e '.schema_version == 1 and .connected == true and .device_name == "WH-1000XM3"' "$STATUS_FILE" >/dev/null 2>&1; then
   pass_test "T1.D2" "Daemon creates valid initial status.json matching schema_version 1"
 else
   fail_test "T1.D2" "status.json missing or does not match schema_version 1"
@@ -182,7 +182,7 @@ fi
 
 # T1.D4: Socket IPC status query
 status_out=$(run_cli status 2>/dev/null || true)
-if echo "$status_out" | jq -e '.schema_version == 1 and .device_name == "WH-1000XM5"' >/dev/null 2>&1; then
+if echo "$status_out" | jq -e '.schema_version == 1 and .device_name == "WH-1000XM3"' >/dev/null 2>&1; then
   pass_test "T1.D4" "Socket IPC responds to 'status' with valid JSON snapshot"
 else
   fail_test "T1.D4" "Socket IPC failed to respond to 'status'" "Got: $status_out"
@@ -220,13 +220,14 @@ else
   fail_test "T1.D8" "Custom EQ bands were not updated properly" "$(cat "$STATUS_FILE")"
 fi
 
-# T1.D9: Socket IPC toggles (Speak-to-Chat, DSEE, Multipoint, Ear-Detect)
-run_cli speak-to-chat on >/dev/null 2>&1 || true
+# T1.D9: Socket IPC toggles (DSEE HX) and rejection of XM5-only verbs
 run_cli dsee off >/dev/null 2>&1 || true
-run_cli multipoint off >/dev/null 2>&1 || true
-run_cli ear-detect off >/dev/null 2>&1 || true
-if jq -e '.speak_to_chat == true and .dsee_extreme == false and .multipoint == false and .ear_detection == false' "$STATUS_FILE" >/dev/null 2>&1; then
-  pass_test "T1.D9" "Daemon updates feature switches (Speak-to-Chat, DSEE, Multipoint, Ear-Detect)"
+set +e
+run_cli speak-to-chat on >/dev/null 2>&1
+s2c_code=$?
+set -e
+if [[ $s2c_code -ne 0 ]] && jq -e '.dsee_extreme == false and (has("speak_to_chat") | not) and (has("multipoint") | not)' "$STATUS_FILE" >/dev/null 2>&1; then
+  pass_test "T1.D9" "Daemon updates DSEE HX and exposes no XM5-only switches"
 else
   fail_test "T1.D9" "Feature toggles were not updated properly" "$(cat "$STATUS_FILE")"
 fi
@@ -295,11 +296,11 @@ fi
 
 # T1.C5: Exit code 0 on toggle commands
 set +e
-out=$(run_cli speak-to-chat off 2>/dev/null)
+out=$(run_cli dsee off 2>/dev/null)
 code=$?
 set -e
 if [[ $code -eq 0 ]]; then
-  pass_test "T1.C5" "sony-ctl speak-to-chat off exits 0"
+  pass_test "T1.C5" "sony-ctl dsee off exits 0"
 else
   fail_test "T1.C5" "sony-ctl toggle command returned code $code"
 fi
@@ -409,7 +410,7 @@ else
 fi
 
 # T2.B3: Corrupted / truncated JSON
-write_status_atomic '{"schema_version": 1, "connected": true, "device_name": "WH-1000XM5", "battery_level":'
+write_status_atomic '{"schema_version": 1, "connected": true, "device_name": "WH-1000XM3", "battery_level":'
 if [[ -f "$FIXTURES_DIR/status_corrupted.json" ]]; then
   pass_test "T2.B3" "Corrupted JSON fixture verified without process crash"
 else
@@ -425,7 +426,7 @@ else
 fi
 
 # T2.B5: Missing schema_version field
-write_status_atomic '{"connected": true, "device_name": "WH-1000XM5"}'
+write_status_atomic '{"connected": true, "device_name": "WH-1000XM3"}'
 if [[ -f "$FIXTURES_DIR/status_missing_schema.json" ]]; then
   pass_test "T2.B5" "Missing schema_version correctly identified as schema violation"
 else
@@ -433,7 +434,7 @@ else
 fi
 
 # T2.B6: Unsupported future schema (schema_version: 99)
-write_status_atomic '{"schema_version": 99, "connected": true, "device_name": "WH-1000XM5"}'
+write_status_atomic '{"schema_version": 99, "connected": true, "device_name": "WH-1000XM3"}'
 if [[ -f "$FIXTURES_DIR/status_schema_too_new.json" ]]; then
   pass_test "T2.B6" "Future schema_version 99 identified with schemaTooNew flag"
 else
@@ -508,21 +509,21 @@ fi
 # ==============================================================================
 section_header "Tier 3: Cross-Feature Combinations & State Transitions"
 
-# T3.S1: Full Listening Mode Cycle (ANC -> Ambient -> Wind -> Off -> ANC)
+# T3.S1: Full Listening Mode Cycle (ANC -> Ambient 14 -> Ambient 0 -> Off -> ANC)
 run_cli noise anc >/dev/null 2>&1
 s1=$(jq -r '.noise_mode' "$STATUS_FILE")
 run_cli noise ambient >/dev/null 2>&1
 run_cli ambient-level 14 >/dev/null 2>&1
 s2=$(jq -r '.noise_mode + ":" + (.ambient_sound_level|tostring)' "$STATUS_FILE")
-run_cli noise wind >/dev/null 2>&1
+run_cli ambient-level 0 >/dev/null 2>&1
 s3=$(jq -r '.noise_mode + ":" + (.ambient_sound_level|tostring)' "$STATUS_FILE")
 run_cli noise off >/dev/null 2>&1
 s4=$(jq -r '.noise_mode' "$STATUS_FILE")
 run_cli noise anc >/dev/null 2>&1
 s5=$(jq -r '.noise_mode' "$STATUS_FILE")
 
-if [[ "$s1" == "anc" && "$s2" == "ambient:14" && "$s3" == "wind:0" && "$s4" == "off" && "$s5" == "anc" ]]; then
-  pass_test "T3.S1" "Complete Listening Mode Cycle (ANC -> Ambient 14 -> Wind 0 -> Off -> ANC)"
+if [[ "$s1" == "anc" && "$s2" == "ambient:14" && "$s3" == "ambient:0" && "$s4" == "off" && "$s5" == "anc" ]]; then
+  pass_test "T3.S1" "Complete Listening Mode Cycle (ANC -> Ambient 14 -> Ambient 0 -> Off -> ANC)"
 else
   fail_test "T3.S1" "Listening mode cycle mismatch: s1=$s1, s2=$s2, s3=$s3, s4=$s4, s5=$s5"
 fi
@@ -632,7 +633,7 @@ READER_PID=$!
 
 # Execute 50 rapid atomic status writes
 for i in {1..50}; do
-  write_status_atomic "{\"schema_version\": 1, \"connected\": true, \"device_name\": \"WH-1000XM5\", \"battery_level\": $((i % 100)), \"last_updated\": $i}"
+  write_status_atomic "{\"schema_version\": 1, \"connected\": true, \"device_name\": \"WH-1000XM3\", \"battery_level\": $((i % 100)), \"last_updated\": $i}"
   usleep 2000 2>/dev/null || sleep 0.005
 done
 

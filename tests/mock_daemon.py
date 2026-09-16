@@ -6,7 +6,7 @@ Simulates sony-headphones-daemon:
 - Manages headphone state
 - Atomically writes state updates to $XDG_STATE_HOME/sony-headphones/status.json
 - Handles wire protocol commands:
-    status, noise, ambient-level, eq, speak-to-chat, dsee, multipoint, ear-detect
+    status, noise, ambient-level, eq, dsee
 - Signal handling:
     SIGTERM / SIGINT: clean shutdown (unlinks socket and status.json)
     SIGUSR1: simulate disconnect (connected: false)
@@ -22,7 +22,7 @@ import select
 import signal
 import argparse
 
-VALID_MODES = ["anc", "ambient", "wind", "off"]
+VALID_MODES = ["anc", "ambient", "off"]
 VALID_PRESETS = ["off", "bright", "excited", "mellow", "relaxed", "vocal", "treble", "bass", "speech", "custom"]
 
 class MockDaemon:
@@ -40,7 +40,7 @@ class MockDaemon:
         self.state = {
             "schema_version": 1,
             "connected": True,
-            "device_name": "WH-1000XM5",
+            "device_name": "WH-1000XM3",
             "battery_level": 85,
             "battery_charging": False,
             "noise_mode": "anc",
@@ -48,11 +48,8 @@ class MockDaemon:
             "eq_preset": "off",
             "eq_custom_bands": [0, 0, 0, 0, 0],
             "clear_bass": 0,
-            "speak_to_chat": False,
             "dsee_extreme": True,
-            "multipoint": True,
             "codec": "LDAC",
-            "ear_detection": True,
             "last_updated": int(time.time())
         }
 
@@ -90,13 +87,11 @@ class MockDaemon:
 
         if verb == "noise":
             if len(parts) < 2:
-                return "ERR missing mode (expected anc|ambient|wind|off)\n"
+                return "ERR missing mode (expected anc|ambient|off)\n"
             mode = parts[1].lower()
             if mode not in VALID_MODES:
                 return f"ERR invalid mode \x27{mode}\x27\n"
             self.state["noise_mode"] = mode
-            if mode == "wind":
-                self.state["ambient_sound_level"] = 0
             self.write_status()
             return "OK\n"
 
@@ -142,31 +137,10 @@ class MockDaemon:
                 self.write_status()
                 return "OK\n"
 
-        if verb == "speak-to-chat":
-            if len(parts) < 2 or parts[1].lower() not in ["on", "off"]:
-                return "ERR expected on|off\n"
-            self.state["speak_to_chat"] = parts[1].lower() == "on"
-            self.write_status()
-            return "OK\n"
-
         if verb == "dsee":
             if len(parts) < 2 or parts[1].lower() not in ["on", "off"]:
                 return "ERR expected on|off\n"
             self.state["dsee_extreme"] = parts[1].lower() == "on"
-            self.write_status()
-            return "OK\n"
-
-        if verb == "multipoint":
-            if len(parts) < 2 or parts[1].lower() not in ["on", "off"]:
-                return "ERR expected on|off\n"
-            self.state["multipoint"] = parts[1].lower() == "on"
-            self.write_status()
-            return "OK\n"
-
-        if verb == "ear-detect" or verb == "ear-detection":
-            if len(parts) < 2 or parts[1].lower() not in ["on", "off"]:
-                return "ERR expected on|off\n"
-            self.state["ear_detection"] = parts[1].lower() == "on"
             self.write_status()
             return "OK\n"
 

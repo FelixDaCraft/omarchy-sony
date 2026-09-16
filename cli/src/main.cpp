@@ -51,7 +51,7 @@ bool is_negative_number(const std::string& str) {
 
 void print_usage(std::ostream& os) {
     os << "Usage: sony-ctl [-s <socket>] <subcommand> [args...]\n"
-       << "Subcommands: status, noise, ambient-level, eq, speak-to-chat, dsee, multipoint, ear-detect\n\n"
+       << "Subcommands: status, noise, ambient-level, eq, dsee\n\n"
        << "Options:\n"
        << "  -s, --socket <path>  Override socket path\n"
        << "  -h, --help           Show help\n"
@@ -236,11 +236,11 @@ int main(int argc, char* argv[]) {
 
     if (subcmd == "noise") {
         if (remaining.size() < 2) {
-            std::cerr << "Error: 'noise' requires a mode: anc, ambient, wind, off\n";
+            std::cerr << "Error: 'noise' requires a mode: anc, ambient, off\n";
             return 1;
         }
         std::string mode = to_lower(remaining[1]);
-        if (mode != "anc" && mode != "ambient" && mode != "wind" && mode != "off") {
+        if (mode != "anc" && mode != "ambient" && mode != "off") {
             std::cerr << "Error: Invalid noise mode '" << remaining[1] << "'\n";
             return 1;
         }
@@ -316,9 +316,7 @@ int main(int argc, char* argv[]) {
         return send_command(socket_path, "eq " + preset + "\n", false);
     }
 
-    if (subcmd == "speak-to-chat" || subcmd == "dsee" ||
-        subcmd == "multipoint" || subcmd == "ear-detect" ||
-        subcmd == "ear-detection") {
+    if (subcmd == "dsee") {
         if (remaining.size() < 2) {
             std::cerr << "Error: '" << remaining[0] << "' requires 'on' or 'off'\n";
             return 1;
@@ -328,8 +326,7 @@ int main(int argc, char* argv[]) {
             std::cerr << "Error: '" << remaining[0] << "' requires 'on' or 'off'\n";
             return 1;
         }
-        std::string verb = (subcmd == "ear-detection" || subcmd == "ear-detect") ? "ear-detect" : subcmd;
-        return send_command(socket_path, verb + " " + val + "\n", false);
+        return send_command(socket_path, subcmd + " " + val + "\n", false);
     }
 
     std::cerr << "Error: Unknown subcommand '" << remaining[0] << "'\n";

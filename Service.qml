@@ -1,5 +1,5 @@
 // plugin/Service.qml
-// Reactive singleton / manager service for Sony WH-1000XM5 headphones.
+// Reactive singleton / manager service for Sony WH-1000XM3 headphones.
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -33,7 +33,6 @@ Item {
   property int batteryLevel: Model.LEVEL_UNKNOWN
   property bool batteryCharging: false
   property string codec: ""
-  property bool earDetection: true
   property var eqCustomBands: [0, 0, 0, 0, 0]
   property int clearBass: 0
 
@@ -41,25 +40,19 @@ Item {
   property string _realNoiseMode: Model.NOISE_UNKNOWN
   property int _realAmbientSoundLevel: 0
   property string _realEqPreset: Model.EQ_OFF
-  property bool _realSpeakToChat: false
   property bool _realDseeExtreme: false
-  property bool _realMultipoint: false
 
   // Optimistic desired states
   property string _desiredNoiseMode: ""
   property int _desiredAmbientLevel: -1
   property string _desiredEqPreset: ""
-  property var _desiredSpeakToChat: null
   property var _desiredDsee: null
-  property var _desiredMultipoint: null
 
   // Exposed effective properties (optimistic value if pending, otherwise real value)
   readonly property string noiseMode: _desiredNoiseMode !== "" ? _desiredNoiseMode : _realNoiseMode
   readonly property int ambientSoundLevel: _desiredAmbientLevel !== -1 ? _desiredAmbientLevel : _realAmbientSoundLevel
   readonly property string eqPreset: _desiredEqPreset !== "" ? _desiredEqPreset : _realEqPreset
-  readonly property bool speakToChat: _desiredSpeakToChat !== null ? _desiredSpeakToChat : _realSpeakToChat
   readonly property bool dseeExtreme: _desiredDsee !== null ? _desiredDsee : _realDseeExtreme
-  readonly property bool multipoint: _desiredMultipoint !== null ? _desiredMultipoint : _realMultipoint
 
   // 4000ms optimistic state settlement timer
   Timer {
@@ -73,9 +66,7 @@ Item {
     _desiredNoiseMode = ""
     _desiredAmbientLevel = -1
     _desiredEqPreset = ""
-    _desiredSpeakToChat = null
     _desiredDsee = null
-    _desiredMultipoint = null
   }
 
   // Command dispatch queue
@@ -141,33 +132,28 @@ Item {
     batteryLevel = parsed.batteryLevel !== undefined ? parsed.batteryLevel : Model.LEVEL_UNKNOWN
     batteryCharging = parsed.batteryCharging === true
     codec = parsed.codec || ""
-    earDetection = parsed.earDetection !== undefined ? parsed.earDetection : true
     eqCustomBands = parsed.eqCustomBands || [0, 0, 0, 0, 0]
     clearBass = parsed.clearBass !== undefined ? parsed.clearBass : 0
 
     _realNoiseMode = parsed.noiseMode || Model.NOISE_UNKNOWN
     _realAmbientSoundLevel = parsed.ambientSoundLevel !== undefined ? parsed.ambientSoundLevel : 0
     _realEqPreset = parsed.eqPreset || Model.EQ_OFF
-    _realSpeakToChat = parsed.speakToChat === true
     _realDseeExtreme = parsed.dseeExtreme === true
-    _realMultipoint = parsed.multipoint === true
 
     // Reconcile optimistic values with settled daemon updates
     if (_desiredNoiseMode !== "" && _realNoiseMode === _desiredNoiseMode) _desiredNoiseMode = ""
     if (_desiredAmbientLevel !== -1 && _realAmbientSoundLevel === _desiredAmbientLevel) _desiredAmbientLevel = -1
     if (_desiredEqPreset !== "" && _realEqPreset === _desiredEqPreset) _desiredEqPreset = ""
-    if (_desiredSpeakToChat !== null && _realSpeakToChat === _desiredSpeakToChat) _desiredSpeakToChat = null
     if (_desiredDsee !== null && _realDseeExtreme === _desiredDsee) _desiredDsee = null
-    if (_desiredMultipoint !== null && _realMultipoint === _desiredMultipoint) _desiredMultipoint = null
 
     if (_desiredNoiseMode === "" && _desiredAmbientLevel === -1 && _desiredEqPreset === "" &&
-        _desiredSpeakToChat === null && _desiredDsee === null && _desiredMultipoint === null) {
+        _desiredDsee === null) {
       settleTimer.stop()
     }
   }
 
   function setNoiseMode(mode) {
-    var valid = [Model.NOISE_ANC, Model.NOISE_AMBIENT, Model.NOISE_WIND, Model.NOISE_OFF]
+    var valid = [Model.NOISE_ANC, Model.NOISE_AMBIENT, Model.NOISE_OFF]
     if (valid.indexOf(mode) === -1) return
     _desiredNoiseMode = mode
     settleTimer.restart()
@@ -207,26 +193,10 @@ Item {
     ])
   }
 
-  function setSpeakToChat(enabled) {
-    _desiredSpeakToChat = enabled === true
-    settleTimer.restart()
-    runCommand(["speak-to-chat", enabled ? "on" : "off"])
-  }
-
   function setDsee(enabled) {
     _desiredDsee = enabled === true
     settleTimer.restart()
     runCommand(["dsee", enabled ? "on" : "off"])
-  }
-
-  function setMultipoint(enabled) {
-    _desiredMultipoint = enabled === true
-    settleTimer.restart()
-    runCommand(["multipoint", enabled ? "on" : "off"])
-  }
-
-  function setEarDetect(enabled) {
-    runCommand(["ear-detect", enabled ? "on" : "off"])
   }
 
   function cycleNoiseMode() {

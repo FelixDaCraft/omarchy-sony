@@ -71,7 +71,7 @@ public:
     // -----------------------------------------------------------------------
     // State Mutators
     // -----------------------------------------------------------------------
-    void setConnected(bool connected, const std::string& deviceName = "WH-1000XM5");
+    void setConnected(bool connected, const std::string& deviceName = "WH-1000XM3");
     void setDeviceName(const std::string& name);
     void setBatteryLevel(int level);
     void setCharging(bool charging);
@@ -91,17 +91,8 @@ public:
     bool setCustomEq(const std::array<int, 5>& bands, int clearBass);
     bool updateCustomEq(const std::array<int, 5>& bands, int clearBass) { return setCustomEq(bands, clearBass); }
 
-    void setSpeakToChat(bool enabled);
-    void updateSpeakToChat(bool enabled) { setSpeakToChat(enabled); }
-
     void setDsee(bool enabled);
     void updateDsee(bool enabled) { setDsee(enabled); }
-
-    void setMultipoint(bool enabled);
-    void updateMultipoint(bool enabled) { setMultipoint(enabled); }
-
-    void setEarDetection(bool enabled);
-    void updateEarDetection(bool enabled) { setEarDetection(enabled); }
 
     void setCodec(const std::string& codec);
 

@@ -5,7 +5,7 @@
   "version": "0.1.0",
   "author": "Roy Kevin",
   "license": "MIT",
-  "description": "Sony WH-1000XM5 Headphone Manager",
+  "description": "Sony WH-1000XM3 Headphone Manager",
   "kinds": [
     "bar-widget"
   ],
@@ -14,7 +14,7 @@
   },
   "barWidget": {
     "displayName": "Sony Headphones",
-    "description": "Sony WH-1000XM5 Headphone Manager",
+    "description": "Sony WH-1000XM3 Headphone Manager",
     "category": "Audio",
     "allowMultiple": false,
     "defaultSection": "right"

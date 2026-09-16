@@ -4,14 +4,11 @@ tests/mock_sony_ctl.py — Mock / Reference Implementation of sony-ctl CLI
 Conforms to PROJECT.md § sony-ctl CLI specification:
 Subcommands:
     status
-    noise <anc|ambient|wind|off>
+    noise <anc|ambient|off>
     ambient-level <0-20>
     eq <preset>
     eq custom <b1> <b2> <b3> <b4> <b5> <cb>
-    speak-to-chat <on|off>
     dsee <on|off>
-    multipoint <on|off>
-    ear-detect <on|off>
 
 Exit codes:
     0: Success
@@ -71,7 +68,7 @@ def main():
 
     if args.help or not remaining:
         print("Usage: sony-ctl [-s <socket>] <subcommand> [args...]")
-        print("Subcommands: status, noise, ambient-level, eq, speak-to-chat, dsee, multipoint, ear-detect")
+        print("Subcommands: status, noise, ambient-level, eq, dsee")
         sys.exit(0 if args.help else 1)
 
     socket_path = args.socket or get_default_socket_path()
@@ -86,10 +83,10 @@ def main():
 
     elif subcmd == "noise":
         if len(remaining) < 2:
-            sys.stderr.write("Error: 'noise' requires a mode: anc, ambient, wind, off\n")
+            sys.stderr.write("Error: 'noise' requires a mode: anc, ambient, off\n")
             sys.exit(1)
         mode = remaining[1].lower()
-        if mode not in ["anc", "ambient", "wind", "off"]:
+        if mode not in ["anc", "ambient", "off"]:
             sys.stderr.write(f"Error: Invalid noise mode '{mode}'\n")
             sys.exit(1)
         code, resp = send_command(socket_path, f"noise {mode}")
@@ -163,12 +160,12 @@ def main():
             sys.stderr.write(f"Error from daemon: {resp}\n")
             sys.exit(1)
 
-    elif subcmd in ["speak-to-chat", "dsee", "multipoint", "ear-detect", "ear-detection"]:
+    elif subcmd in ["dsee"]:
         if len(remaining) < 2 or remaining[1].lower() not in ["on", "off"]:
             sys.stderr.write(f"Error: '{subcmd}' requires 'on' or 'off'\n")
             sys.exit(1)
         val = remaining[1].lower()
-        cmd_verb = "ear-detect" if "ear" in subcmd else subcmd
+        cmd_verb = subcmd
         code, resp = send_command(socket_path, f"{cmd_verb} {val}")
         if code != 0:
             sys.exit(code)
