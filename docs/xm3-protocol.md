@@ -33,6 +33,35 @@ Send it first on every RFCOMM connection.
 Each inbound DATA frame must be ACKed promptly (type `0x01`, seq `1 - rx_seq`,
 empty payload) or the headset retransmits three times and then drops the session.
 
+## One frame at a time
+
+The link is strictly sequenced. Writing frames back to back makes the headset
+drop some of them with no error of any kind — it simply never answers, and
+never applies the command. Which frame is lost is not deterministic.
+
+Measured on the XM3, sending four queries without waiting:
+
+```
+burst  ->  01 00 40 10 | 67 02 01 02 00 01 00 14 | 11 00 64 00
+           (04 01 lost, replies out of order)
+
+paced  ->  00 00  ->  01 00 40 10
+           04 01  ->  05 01 0a "WH-1000XM3"
+           10 00  ->  11 00 64 00
+           66 02  ->  67 02 01 02 00 01 00 14
+```
+
+Control commands behave the same way: four in a row reliably lose one.
+
+The headset sends exactly one ACK per frame it receives, including for commands
+it chooses not to answer, so the ACK is the correct signal to release the next
+frame — waiting for a *reply* would stall on any unsupported command. Keep a
+timeout anyway so a silent headset cannot wedge the queue.
+
+Under a genuinely extreme burst (ten preset changes inside a second) the XM3
+still drops changes even when paced by ACK. That is a device limit, not a
+framing problem; normal interactive use is unaffected.
+
 ## Verified commands
 
 | Feature | GET | Response | Notes |

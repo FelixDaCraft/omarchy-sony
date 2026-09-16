@@ -5,6 +5,8 @@
 #include <array>
 #include <optional>
 #include <chrono>
+#include <deque>
+#include <functional>
 #include <csignal>
 #include <cerrno>
 #include <cstring>
@@ -217,6 +219,44 @@ int main(int argc, char* argv[]) {
         return s;
     };
 
+    // MDR is strictly sequenced: the headset acknowledges one frame before it is
+    // ready for the next. Writing frames back to back makes it drop some of them
+    // with no error of any kind — four control commands in a row reliably lose
+    // one — so every outbound frame goes through this queue and the next is
+    // released only once the previous one has been acknowledged.
+    //
+    // Frames are built lazily because the sequence bit has to alternate in the
+    // order frames actually reach the headset, not the order they were queued.
+    //
+    // Our own ACKs bypass the queue: they are replies, not commands, and the
+    // headset retransmits until it gets one.
+    std::deque<std::function<std::vector<uint8_t>()>> txQueue;
+    bool txPending = false;
+    std::chrono::steady_clock::time_point txSentAt{};
+
+    auto pumpTx = [&]() {
+        if (txQueue.empty()) {
+            txPending = false;
+            return;
+        }
+        auto buildFrame = txQueue.front();
+        txQueue.pop_front();
+        auto frame = buildFrame();
+        fprintf(stderr, "[DAEMON] TX frame (%zu bytes, %zu still queued)\n",
+                frame.size(), txQueue.size());
+        fflush(stderr);
+        btManager->sendPacket(frame);
+        txPending = true;
+        txSentAt = std::chrono::steady_clock::now();
+    };
+
+    auto enqueueTx = [&](std::function<std::vector<uint8_t>()> buildFrame) {
+        txQueue.push_back(std::move(buildFrame));
+        if (!txPending) {
+            pumpTx();
+        }
+    };
+
     BluetoothCallbacks callbacks;
     callbacks.onConnected = [&]() {
         txSeq = 0;
@@ -231,22 +271,26 @@ int main(int argc, char* argv[]) {
                 name.c_str(), dev.batteryLevel);
         fflush(stderr);
 
+        txQueue.clear();
+        txPending = false;
+
         if (!opts.mockMode) {
             // CONNECT_GET_PROTOCOL_INFO must open the session: the XM3 silently
-            // drops every other command until it has been handshaken.
-            btManager->sendPacket(serializeHandshake(nextSeq()));
-            btManager->sendPacket(serializeQueryDeviceName(nextSeq()));
-
-            // Initial status query flurry with sequence toggling
-            btManager->sendPacket(serializeQueryBattery(nextSeq()));
-            btManager->sendPacket(serializeQueryNoiseMode(nextSeq()));
-            btManager->sendPacket(serializeQueryEq(nextSeq()));
-            btManager->sendPacket(serializeQueryDsee(nextSeq()));
+            // drops every other command until it has been handshaken. The rest
+            // follow one at a time as each acknowledgement comes back.
+            enqueueTx([&]() { return serializeHandshake(nextSeq()); });
+            enqueueTx([&]() { return serializeQueryDeviceName(nextSeq()); });
+            enqueueTx([&]() { return serializeQueryBattery(nextSeq()); });
+            enqueueTx([&]() { return serializeQueryNoiseMode(nextSeq()); });
+            enqueueTx([&]() { return serializeQueryEq(nextSeq()); });
+            enqueueTx([&]() { return serializeQueryDsee(nextSeq()); });
         }
     };
 
     callbacks.onDisconnected = [&](const std::string& reason) {
         txSeq = 0;
+        txQueue.clear();
+        txPending = false;
         streamFramer.reset();
         stateEngine.setConnected(false);
         stateEngine.save();
@@ -284,6 +328,11 @@ int main(int argc, char* argv[]) {
                             stateEngine.getState().voice_passthrough ? 1 : 0);
                     fflush(stderr);
                 }
+            } else if (unpacked.type == PacketType::ACK) {
+                // Exactly one acknowledgement comes back per frame we send, even
+                // for a command the headset chooses not to answer, so this is the
+                // signal to release the next queued frame.
+                pumpTx();
             }
         }
     };
@@ -308,11 +357,13 @@ int main(int argc, char* argv[]) {
         stateEngine.updateNoiseMode(noiseModeToString(mode), finalLevel, stateEngine.getState().voice_passthrough);
         stateEngine.save();
         if (btManager && btManager->getState() == ConnectionState::CONNECTED) {
-            uint8_t seq = nextSeq();
-            fprintf(stderr, "[DAEMON] Sending noise mode: %s (level %u, seq %u)\n",
-                    noiseModeToString(mode).c_str(), (unsigned)finalLevel, (unsigned)seq);
+            bool voice = stateEngine.getState().voice_passthrough;
+            fprintf(stderr, "[DAEMON] Queueing noise mode: %s (level %u)\n",
+                    noiseModeToString(mode).c_str(), (unsigned)finalLevel);
             fflush(stderr);
-            btManager->sendPacket(serializeNoiseMode(mode, finalLevel, stateEngine.getState().voice_passthrough, seq));
+            enqueueTx([&, mode, finalLevel, voice]() {
+                return serializeNoiseMode(mode, finalLevel, voice, nextSeq());
+            });
         } else {
             fprintf(stderr, "[DAEMON] Warning: BT not connected, packet queued/skipped\n");
             fflush(stderr);
@@ -323,10 +374,12 @@ int main(int argc, char* argv[]) {
         stateEngine.updateAmbientLevel(level);
         stateEngine.save();
         if (btManager && btManager->getState() == ConnectionState::CONNECTED) {
-            uint8_t seq = nextSeq();
-            fprintf(stderr, "[DAEMON] Sending ambient level: %u (seq %u)\n", (unsigned)level, (unsigned)seq);
+            bool voice = stateEngine.getState().voice_passthrough;
+            fprintf(stderr, "[DAEMON] Queueing ambient level: %u\n", (unsigned)level);
             fflush(stderr);
-            btManager->sendPacket(serializeAmbientLevel(level, stateEngine.getState().voice_passthrough, seq));
+            enqueueTx([&, level, voice]() {
+                return serializeAmbientLevel(level, voice, nextSeq());
+            });
         }
         return true;
     };
@@ -334,10 +387,9 @@ int main(int argc, char* argv[]) {
         stateEngine.updateEqPreset(eqPresetToString(preset));
         stateEngine.save();
         if (btManager && btManager->getState() == ConnectionState::CONNECTED) {
-            uint8_t seq = nextSeq();
-            fprintf(stderr, "[DAEMON] Sending EQ preset: %s (seq %u)\n", eqPresetToString(preset).c_str(), (unsigned)seq);
+            fprintf(stderr, "[DAEMON] Queueing EQ preset: %s\n", eqPresetToString(preset).c_str());
             fflush(stderr);
-            btManager->sendPacket(serializeEqPreset(preset, seq));
+            enqueueTx([&, preset]() { return serializeEqPreset(preset, nextSeq()); });
         }
         return true;
     };
@@ -345,10 +397,9 @@ int main(int argc, char* argv[]) {
         stateEngine.updateCustomEq(bands, clearBass);
         stateEngine.save();
         if (btManager && btManager->getState() == ConnectionState::CONNECTED) {
-            uint8_t seq = nextSeq();
-            fprintf(stderr, "[DAEMON] Sending Custom EQ (seq %u)\n", (unsigned)seq);
+            fprintf(stderr, "[DAEMON] Queueing Custom EQ\n");
             fflush(stderr);
-            btManager->sendPacket(serializeCustomEq(bands, clearBass, seq));
+            enqueueTx([&, bands, clearBass]() { return serializeCustomEq(bands, clearBass, nextSeq()); });
         }
         return true;
     };
@@ -356,10 +407,9 @@ int main(int argc, char* argv[]) {
         stateEngine.updateDsee(enabled);
         stateEngine.save();
         if (btManager && btManager->getState() == ConnectionState::CONNECTED) {
-            uint8_t seq = nextSeq();
-            fprintf(stderr, "[DAEMON] Sending DSEE: %s (seq %u)\n", enabled ? "on" : "off", (unsigned)seq);
+            fprintf(stderr, "[DAEMON] Queueing DSEE: %s\n", enabled ? "on" : "off");
             fflush(stderr);
-            btManager->sendPacket(serializeDsee(enabled, seq));
+            enqueueTx([&, enabled]() { return serializeDsee(enabled, nextSeq()); });
         }
         return true;
     };
@@ -471,6 +521,19 @@ int main(int argc, char* argv[]) {
 
         // Subsystem periodic tick (timeouts and reconnect backoff)
         btManager->tick();
+
+        // Never let a silent headset stall the queue: if an acknowledgement does
+        // not arrive, move on rather than wedging every later command.
+        if (txPending && !txQueue.empty()) {
+            auto waitedMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now() - txSentAt).count();
+            if (waitedMs > 1500) {
+                fprintf(stderr, "[DAEMON] Frame unacknowledged after %lldms; releasing next\n",
+                        static_cast<long long>(waitedMs));
+                fflush(stderr);
+                pumpTx();
+            }
+        }
     }
 
     // 8. Graceful Shutdown & Resource Cleanup
