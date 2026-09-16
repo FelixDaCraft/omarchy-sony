@@ -90,7 +90,7 @@ sudo apt update && sudo apt install -y build-essential cmake ninja-build libblue
 Clone the repository and run the automated setup script:
 
 ```bash
-git clone https://github.com/felixdacraft/omarchy-sony.git
+git clone https://github.com/FelixDaCraft/omarchy-sony.git
 cd omarchy-sony
 ./setup
 ```
