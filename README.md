@@ -100,7 +100,7 @@ The `./setup` script will:
 2. Build the daemon and CLI binaries with CMake and Ninja.
 3. Install `sony-headphones-daemon` and `sony-ctl` to `~/.local/bin/`.
 4. Register and start the `sony-headphones.service` user systemd unit.
-5. Deploy the QML plugin to `~/.config/omarchy/plugins/io.github.androydified.omasony`.
+5. Deploy the QML plugin to `~/.config/omarchy/plugins/io.github.felixdacraft.omasony`.
 
 ---
 

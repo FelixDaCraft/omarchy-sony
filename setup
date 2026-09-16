@@ -51,7 +51,7 @@ Steps performed:
   3. Install sony-headphones-daemon and sony-ctl into ~/.local/bin (mode 0755).
   4. Copy daemon/sony-headphones.service to ~/.config/systemd/user/,
      reload systemd daemon, and enable the service unit.
-  5. Install the plugin into ~/.config/omarchy/plugins/io.github.androydified.omasony
+  5. Install the plugin into ~/.config/omarchy/plugins/io.github.felixdacraft.omasony
      (the only user-plugin directory Omarchy scans), validate it via
      omarchy-plugin-validate if present, and enable it.
 HELP_EOF
@@ -192,7 +192,7 @@ deploy_plugin() {
   # ~/.local/share/omarchy/shell/plugins is never read, so nothing is copied
   # there any more. When this repository is already checked out under the user
   # plugin directory, it *is* the installed plugin and needs no copy at all.
-  local user_plugin_dest="$HOME/.config/omarchy/plugins/io.github.androydified.omasony"
+  local user_plugin_dest="$HOME/.config/omarchy/plugins/io.github.felixdacraft.omasony"
 
   if [[ "$(cd "$ROOT_DIR" && pwd -P)" == "$(cd "$user_plugin_dest" 2>/dev/null && pwd -P || echo "")" ]]; then
     info "Source tree is already the installed plugin ($user_plugin_dest); nothing to copy."
@@ -205,7 +205,7 @@ deploy_plugin() {
   fi
 
   # Remove the stale copy older versions of this script used to leave behind.
-  local legacy_dest="$HOME/.local/share/omarchy/shell/plugins/io.github.androydified.omasony"
+  local legacy_dest="$HOME/.local/share/omarchy/shell/plugins/io.github.felixdacraft.omasony"
   if [[ -d "$legacy_dest" ]]; then
     info "Removing unused legacy deployment at $legacy_dest..."
     rm -rf "$legacy_dest"
@@ -222,8 +222,8 @@ deploy_plugin() {
   success "Plugin installed at $user_plugin_dest."
 
   if command -v omarchy >/dev/null 2>&1; then
-    info "Enabling plugin io.github.androydified.omasony in Omarchy..."
-    omarchy plugin enable io.github.androydified.omasony 2>/dev/null || true
+    info "Enabling plugin io.github.felixdacraft.omasony in Omarchy..."
+    omarchy plugin enable io.github.felixdacraft.omasony 2>/dev/null || true
   fi
 }
 
